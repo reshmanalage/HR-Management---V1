@@ -1,0 +1,90 @@
+from datetime import datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.core.exceptions import EmailAlreadyExistsError, RoleNotFoundError, UserNotFoundError
+from app.core.security import generate_opaque_token, hash_opaque_token
+from app.models.user import User
+from app.models.user_role import UserRole
+from app.repositories.audit_log_repository import AuditLogRepository
+from app.repositories.password_reset_token_repository import PasswordResetTokenRepository
+from app.repositories.role_repository import RoleRepository
+from app.repositories.user_repository import UserRepository
+from app.utils.email_sender import send_welcome_email
+
+
+class UserService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.user_repository = UserRepository(db)
+        self.role_repository = RoleRepository(db)
+        self.reset_token_repository = PasswordResetTokenRepository(db)
+        self.audit_log_repository = AuditLogRepository(db)
+
+    def create_user(
+        self,
+        *,
+        creator_id: int,
+        first_name: str,
+        last_name: str,
+        email: str,
+        role_id: int,
+        employee_code: str | None,
+        ip_address: str | None,
+    ) -> User:
+        if self.user_repository.get_by_email(email) is not None:
+            raise EmailAlreadyExistsError()
+
+        role = self.role_repository.get_by_id(role_id)
+        if role is None:
+            raise RoleNotFoundError()
+
+        # password_hash stays None until the user sets it via the emailed
+        # set-password link - this mirrors how Google-only accounts work and
+        # means an unset account simply can't log in yet (see AuthService.login).
+        user = User(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            employee_code=employee_code,
+            password_hash=None,
+            is_active=True,
+            created_by=creator_id,
+        )
+        self.user_repository.save(user)
+
+        self.db.add(UserRole(user_id=user.id, role_id=role.id, assigned_by=creator_id))
+
+        self.audit_log_repository.create(
+            actor_user_id=creator_id,
+            action="USER_CREATED",
+            entity_type="user",
+            entity_id=user.id,
+            metadata={"role": role.name},
+            ip_address=ip_address,
+        )
+
+        raw_token = generate_opaque_token()
+        self.reset_token_repository.create(
+            user_id=user.id,
+            token_hash=hash_opaque_token(raw_token),
+            expires_at=datetime.utcnow() + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
+        )
+
+        self.db.commit()
+
+        set_password_link = f"{settings.FRONTEND_ORIGIN}/reset-password?token={raw_token}"
+        send_welcome_email(to_email=user.email, set_password_link=set_password_link)
+
+        return user
+
+    def list_users(self) -> list[tuple[User, list[str]]]:
+        users = self.user_repository.list_all()
+        return [(user, self.user_repository.get_role_names(user.id)) for user in users]
+
+    def get_user(self, user_id: int) -> tuple[User, list[str]]:
+        user = self.user_repository.get_by_id(user_id)
+        if user is None:
+            raise UserNotFoundError()
+        return user, self.user_repository.get_role_names(user_id)

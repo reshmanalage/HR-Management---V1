@@ -16,6 +16,10 @@ class UserRepository:
         stmt = select(User).where(User.email == email)
         return self.db.scalar(stmt)
 
+    def list_all(self) -> list[User]:
+        stmt = select(User).order_by(User.created_at.desc())
+        return list(self.db.scalars(stmt).all())
+
     def get_role_names(self, user_id: int) -> list[str]:
         stmt = (
             select(UserRole)

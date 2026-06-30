@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class RoleOut(BaseModel):
@@ -23,3 +23,11 @@ class UserOut(BaseModel):
     is_email_verified: bool
     created_at: datetime
     roles: list[str] = []
+
+
+class CreateUserRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    role_id: int
+    employee_code: str | None = None

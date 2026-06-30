@@ -28,3 +28,18 @@ class InvalidTokenError(AppError):
 class PermissionDeniedError(AppError):
     def __init__(self, permission_code: str):
         super().__init__(f"Missing required permission: {permission_code}", status_code=403)
+
+
+class EmailAlreadyExistsError(AppError):
+    def __init__(self):
+        super().__init__("A user with this email already exists", status_code=409)
+
+
+class RoleNotFoundError(AppError):
+    def __init__(self):
+        super().__init__("Role not found", status_code=404)
+
+
+class UserNotFoundError(AppError):
+    def __init__(self):
+        super().__init__("User not found", status_code=404)

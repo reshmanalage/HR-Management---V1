@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getCurrentUser } from "../services/authService";
 
@@ -30,9 +30,14 @@ export default function DashboardLayout() {
             </div>
           )}
         </div>
-        <button onClick={logout} className="text-sm text-gray-300 hover:text-white text-left">
-          Logout
-        </button>
+        <div className="flex flex-col gap-2">
+          <Link to="/change-password" className="text-sm text-gray-300 hover:text-white">
+            Change Password
+          </Link>
+          <button onClick={logout} className="text-sm text-gray-300 hover:text-white text-left">
+            Logout
+          </button>
+        </div>
       </aside>
       <main className="flex-1 p-6 bg-gray-50">
         <Outlet />

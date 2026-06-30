@@ -3,11 +3,20 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.controllers.auth_controller import AuthController
+from app.controllers.password_controller import PasswordController
 from app.database.session import get_db
 from app.models.user import User
 from app.repositories.login_log_repository import LoginLogRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth_schema import LoginRequest, LogoutRequest, RefreshRequest, TokenResponse
+from app.schemas.auth_schema import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.schemas.user_schema import UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -42,6 +51,27 @@ def get_me(current_user: User = Depends(get_current_user), db: Session = Depends
         is_email_verified=current_user.is_email_verified,
         created_at=current_user.created_at,
         roles=roles,
+    )
+
+
+@router.post("/forgot-password", status_code=204)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    PasswordController(db).forgot_password(payload.email)
+
+
+@router.post("/reset-password", status_code=204)
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    PasswordController(db).reset_password(payload.token, payload.new_password)
+
+
+@router.post("/change-password", status_code=204)
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    PasswordController(db).change_password(
+        current_user.id, payload.current_password, payload.new_password
     )
 
 

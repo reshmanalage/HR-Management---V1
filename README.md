@@ -17,10 +17,13 @@ venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env   # then fill in real DB password / JWT secret
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 7000
 ```
 
-API runs at `http://localhost:8000`, docs at `http://localhost:8000/docs`.
+API runs at `http://localhost:7000`, docs at `http://localhost:7000/docs`.
+(Port 8000 is reserved/blocked by Windows on some machines — Hyper-V/Docker Desktop excluded
+port ranges. If 7000 is free on your machine, you can use 8000 instead; just keep
+`frontend/.env`'s `VITE_API_BASE_URL` and `backend/.env`'s `GOOGLE_REDIRECT_URI` in sync.)
 
 ## Frontend Setup
 
