@@ -1,0 +1,30 @@
+class AppError(Exception):
+    def __init__(self, message: str, status_code: int = 400):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
+class InvalidCredentialsError(AppError):
+    def __init__(self):
+        super().__init__("Invalid email or password", status_code=401)
+
+
+class AccountLockedError(AppError):
+    def __init__(self):
+        super().__init__("Account is locked due to too many failed login attempts", status_code=423)
+
+
+class AccountInactiveError(AppError):
+    def __init__(self):
+        super().__init__("Account is inactive", status_code=403)
+
+
+class InvalidTokenError(AppError):
+    def __init__(self, message: str = "Invalid or expired token"):
+        super().__init__(message, status_code=401)
+
+
+class PermissionDeniedError(AppError):
+    def __init__(self, permission_code: str):
+        super().__init__(f"Missing required permission: {permission_code}", status_code=403)
