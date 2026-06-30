@@ -6,6 +6,7 @@ import LoginPage from "../pages/auth/LoginPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 import ChangePasswordPage from "../pages/auth/ChangePasswordPage";
+import GoogleCallbackPage from "../pages/auth/GoogleCallbackPage";
 import UserListPage from "../pages/users/UserListPage";
 import CreateUserPage from "../pages/users/CreateUserPage";
 import SessionsPage from "../pages/account/SessionsPage";
@@ -19,6 +20,8 @@ export default function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
+
+      <Route path="/auth/google/complete" element={<GoogleCallbackPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>

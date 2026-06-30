@@ -48,3 +48,11 @@ class UserNotFoundError(AppError):
 class SessionNotFoundError(AppError):
     def __init__(self):
         super().__init__("Session not found", status_code=404)
+
+
+class GoogleAccountNotProvisionedError(AppError):
+    def __init__(self):
+        super().__init__(
+            "No account found for this Google email. Contact your administrator to get access.",
+            status_code=403,
+        )

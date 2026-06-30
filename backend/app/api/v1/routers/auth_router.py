@@ -1,9 +1,14 @@
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.controllers.auth_controller import AuthController
 from app.controllers.password_controller import PasswordController
+from app.core.config import settings
+from app.core.exceptions import AppError
 from app.database.session import get_db
 from app.models.user import User
 from app.repositories.login_log_repository import LoginLogRepository
@@ -19,6 +24,8 @@ from app.schemas.auth_schema import (
 )
 from app.schemas.session_schema import SessionOut
 from app.schemas.user_schema import UserOut
+
+GOOGLE_STATE_COOKIE = "google_oauth_state"
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -74,6 +81,39 @@ def change_password(
     PasswordController(db).change_password(
         current_user.id, payload.current_password, payload.new_password
     )
+
+
+@router.get("/google/login")
+def google_login(db: Session = Depends(get_db)):
+    auth_url, state = AuthController(db).google_login_url()
+    response = RedirectResponse(url=auth_url)
+    response.set_cookie(
+        GOOGLE_STATE_COOKIE,
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@router.get("/google/callback")
+def google_callback(code: str, state: str, request: Request, db: Session = Depends(get_db)):
+    expected_state = request.cookies.get(GOOGLE_STATE_COOKIE)
+    failure_url = f"{settings.FRONTEND_ORIGIN}/login?error=google_auth_failed"
+
+    if not expected_state or expected_state != state:
+        return RedirectResponse(url=failure_url)
+
+    try:
+        tokens = AuthController(db).google_callback(code, request)
+    except AppError:
+        return RedirectResponse(url=failure_url)
+
+    fragment = urlencode({"access_token": tokens.access_token, "refresh_token": tokens.refresh_token})
+    response = RedirectResponse(url=f"{settings.FRONTEND_ORIGIN}/auth/google/complete#{fragment}")
+    response.delete_cookie(GOOGLE_STATE_COOKIE)
+    return response
 
 
 @router.get("/sessions", response_model=list[SessionOut])

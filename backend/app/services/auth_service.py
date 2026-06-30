@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.exceptions import (
     AccountInactiveError,
+    GoogleAccountNotProvisionedError,
     InvalidCredentialsError,
     InvalidTokenError,
     SessionNotFoundError,
@@ -16,11 +17,13 @@ from app.core.security import (
     verify_password,
 )
 from app.models.login_log import LoginStatus
+from app.repositories.google_account_repository import GoogleAccountRepository
 from app.repositories.login_log_repository import LoginLogRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.token_repository import TokenRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth_schema import TokenResponse
+from app.services.google_oauth_service import GoogleProfile
 from app.services.login_security_service import LoginSecurityService
 
 
@@ -31,6 +34,7 @@ class AuthService:
         self.login_log_repository = LoginLogRepository(db)
         self.session_repository = SessionRepository(db)
         self.token_repository = TokenRepository(db)
+        self.google_account_repository = GoogleAccountRepository(db)
         self.login_security_service = LoginSecurityService(self.user_repository)
 
     def login(
@@ -145,6 +149,75 @@ class AuthService:
                 self.session_repository.deactivate(session)
 
         self.db.commit()
+
+    def google_login(
+        self,
+        *,
+        profile: GoogleProfile,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> TokenResponse:
+        google_account = self.google_account_repository.get_by_google_id(profile.google_id)
+
+        if google_account is not None:
+            user = self.user_repository.get_by_id(google_account.user_id)
+        else:
+            # No existing link - only allow this to succeed if a pre-provisioned
+            # user already exists with this email (no public self-registration).
+            user = self.user_repository.get_by_email(profile.email)
+            if user is None:
+                self.login_log_repository.create(
+                    user_id=None,
+                    email_attempted=profile.email,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    status=LoginStatus.FAILED,
+                )
+                self.db.commit()
+                raise GoogleAccountNotProvisionedError()
+
+            self.google_account_repository.link(
+                user_id=user.id, google_id=profile.google_id, email=profile.email
+            )
+
+        if user is None or not user.is_active:
+            self.db.commit()
+            raise AccountInactiveError()
+
+        try:
+            self.login_security_service.ensure_not_locked(user)
+        except Exception:
+            self.login_log_repository.create(
+                user_id=user.id,
+                email_attempted=profile.email,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                status=LoginStatus.LOCKED,
+            )
+            self.db.commit()
+            raise
+
+        if profile.email_verified and not user.is_email_verified:
+            user.is_email_verified = True
+            self.user_repository.save(user)
+
+        self.login_security_service.register_successful_login(user)
+        self.login_log_repository.create(
+            user_id=user.id,
+            email_attempted=profile.email,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            status=LoginStatus.SUCCESS,
+        )
+
+        session = self.session_repository.create(user_id=user.id, ip_address=ip_address, user_agent=user_agent)
+
+        access_token = create_access_token(subject=str(user.id))
+        refresh_token = self._issue_refresh_token(user_id=user.id, session_id=session.id, remember_me=False)
+
+        self.db.commit()
+
+        return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
     def list_sessions(self, *, user_id: int) -> list:
         return self.session_repository.list_active_for_user(user_id)
