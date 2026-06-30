@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.session import UserSession
@@ -15,6 +16,14 @@ class SessionRepository:
 
     def get_by_id(self, session_id: int) -> UserSession | None:
         return self.db.get(UserSession, session_id)
+
+    def list_active_for_user(self, user_id: int) -> list[UserSession]:
+        stmt = (
+            select(UserSession)
+            .where(UserSession.user_id == user_id, UserSession.is_active.is_(True))
+            .order_by(UserSession.last_active_at.desc())
+        )
+        return list(self.db.scalars(stmt).all())
 
     def deactivate(self, session: UserSession) -> None:
         session.is_active = False

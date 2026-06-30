@@ -29,6 +29,17 @@ export default function DashboardLayout() {
               </p>
             </div>
           )}
+          <nav className="flex flex-col gap-2 text-sm">
+            <Link to="/users" className="text-gray-300 hover:text-white">
+              Users
+            </Link>
+            <Link to="/sessions" className="text-gray-300 hover:text-white">
+              Active Sessions
+            </Link>
+            <Link to="/login-history" className="text-gray-300 hover:text-white">
+              Login History
+            </Link>
+          </nav>
         </div>
         <div className="flex flex-col gap-2">
           <Link to="/change-password" className="text-sm text-gray-300 hover:text-white">

@@ -25,3 +25,17 @@ export async function resetPassword({ token, new_password }) {
 export async function changePassword({ current_password, new_password }) {
   await api.post("/auth/change-password", { current_password, new_password });
 }
+
+export async function listSessions() {
+  const { data } = await api.get("/auth/sessions");
+  return data;
+}
+
+export async function revokeSession(sessionId) {
+  await api.delete(`/auth/sessions/${sessionId}`);
+}
+
+export async function getLoginHistory() {
+  const { data } = await api.get("/auth/login-history");
+  return data;
+}

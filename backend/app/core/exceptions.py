@@ -43,3 +43,8 @@ class RoleNotFoundError(AppError):
 class UserNotFoundError(AppError):
     def __init__(self):
         super().__init__("User not found", status_code=404)
+
+
+class SessionNotFoundError(AppError):
+    def __init__(self):
+        super().__init__("Session not found", status_code=404)

@@ -17,6 +17,7 @@ from app.schemas.auth_schema import (
     ResetPasswordRequest,
     TokenResponse,
 )
+from app.schemas.session_schema import SessionOut
 from app.schemas.user_schema import UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -73,6 +74,20 @@ def change_password(
     PasswordController(db).change_password(
         current_user.id, payload.current_password, payload.new_password
     )
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+def list_sessions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return AuthController(db).list_sessions(current_user.id)
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+def revoke_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    AuthController(db).revoke_session(current_user.id, session_id)
 
 
 @router.get("/login-history")

@@ -8,6 +8,8 @@ import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 import ChangePasswordPage from "../pages/auth/ChangePasswordPage";
 import UserListPage from "../pages/users/UserListPage";
 import CreateUserPage from "../pages/users/CreateUserPage";
+import SessionsPage from "../pages/account/SessionsPage";
+import LoginHistoryPage from "../pages/account/LoginHistoryPage";
 
 export default function AppRoutes() {
   return (
@@ -22,6 +24,8 @@ export default function AppRoutes() {
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<Navigate to="/users" replace />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route path="/sessions" element={<SessionsPage />} />
+          <Route path="/login-history" element={<LoginHistoryPage />} />
           <Route path="/users" element={<UserListPage />} />
           <Route path="/users/new" element={<CreateUserPage />} />
         </Route>

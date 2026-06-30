@@ -3,7 +3,12 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import AccountInactiveError, InvalidCredentialsError, InvalidTokenError
+from app.core.exceptions import (
+    AccountInactiveError,
+    InvalidCredentialsError,
+    InvalidTokenError,
+    SessionNotFoundError,
+)
 from app.core.security import (
     create_access_token,
     generate_opaque_token,
@@ -139,6 +144,18 @@ class AuthService:
             if session:
                 self.session_repository.deactivate(session)
 
+        self.db.commit()
+
+    def list_sessions(self, *, user_id: int) -> list:
+        return self.session_repository.list_active_for_user(user_id)
+
+    def revoke_session(self, *, user_id: int, session_id: int) -> None:
+        session = self.session_repository.get_by_id(session_id)
+        if session is None or session.user_id != user_id or not session.is_active:
+            raise SessionNotFoundError()
+
+        self.session_repository.deactivate(session)
+        self.token_repository.revoke_all_for_session(session_id)
         self.db.commit()
 
     def _issue_refresh_token(

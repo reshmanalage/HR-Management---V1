@@ -43,3 +43,11 @@ class TokenRepository:
         for token in self.db.scalars(stmt).all():
             token.revoked_at = datetime.utcnow()
         self.db.flush()
+
+    def revoke_all_for_session(self, session_id: int) -> None:
+        stmt = select(RefreshToken).where(
+            RefreshToken.session_id == session_id, RefreshToken.revoked_at.is_(None)
+        )
+        for token in self.db.scalars(stmt).all():
+            token.revoked_at = datetime.utcnow()
+        self.db.flush()

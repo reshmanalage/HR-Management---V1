@@ -23,3 +23,9 @@ class AuthController:
 
     def logout(self, refresh_token: str) -> None:
         self.auth_service.logout(refresh_token=refresh_token)
+
+    def list_sessions(self, user_id: int):
+        return self.auth_service.list_sessions(user_id=user_id)
+
+    def revoke_session(self, user_id: int, session_id: int) -> None:
+        self.auth_service.revoke_session(user_id=user_id, session_id=session_id)
