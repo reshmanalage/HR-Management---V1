@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.controllers.auth_controller import AuthController
+from app.controllers.email_verification_controller import EmailVerificationController
 from app.controllers.password_controller import PasswordController
 from app.core.config import settings
 from app.core.exceptions import AppError
@@ -21,6 +22,7 @@ from app.schemas.auth_schema import (
     RefreshRequest,
     ResetPasswordRequest,
     TokenResponse,
+    VerifyEmailRequest,
 )
 from app.schemas.session_schema import SessionOut
 from app.schemas.user_schema import UserOut
@@ -81,6 +83,16 @@ def change_password(
     PasswordController(db).change_password(
         current_user.id, payload.current_password, payload.new_password
     )
+
+
+@router.post("/send-verification-email", status_code=204)
+def send_verification_email(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    EmailVerificationController(db).send_verification_email(current_user.id)
+
+
+@router.post("/verify-email", status_code=204)
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    EmailVerificationController(db).verify_email(payload.token)
 
 
 @router.get("/google/login")

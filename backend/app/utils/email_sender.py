@@ -16,3 +16,8 @@ def send_password_reset_email(*, to_email: str, reset_link: str) -> None:
 def send_welcome_email(*, to_email: str, set_password_link: str) -> None:
     logger.info("Welcome / set-password link for %s: %s", to_email, set_password_link)
     print(f"[email stub] Welcome! Set your password for {to_email}: {set_password_link}")
+
+
+def send_email_verification_email(*, to_email: str, verify_link: str) -> None:
+    logger.info("Email verification link for %s: %s", to_email, verify_link)
+    print(f"[email stub] Verify your email for {to_email}: {verify_link}")

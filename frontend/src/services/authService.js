@@ -39,3 +39,11 @@ export async function getLoginHistory() {
   const { data } = await api.get("/auth/login-history");
   return data;
 }
+
+export async function sendVerificationEmail() {
+  await api.post("/auth/send-verification-email");
+}
+
+export async function verifyEmail(token) {
+  await api.post("/auth/verify-email", { token });
+}
