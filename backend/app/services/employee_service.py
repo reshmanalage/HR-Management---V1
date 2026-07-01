@@ -1,20 +1,29 @@
-from datetime import date
-from typing import Optional
-
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
-    EmployeeNotFoundError,
     DepartmentNotFoundError,
     DesignationNotFoundError,
+    EmployeeNotFoundError,
 )
 from app.models.department import Department
 from app.models.designation import Designation
-from app.models.employee import Employee, Gender
+from app.models.employee import Employee
+from app.models.employee_address import EmployeeAddress
+from app.models.employee_bank_account import EmployeeBankAccount
+from app.models.employee_document import EmployeeDocument
+from app.models.employee_statutory import EmployeeStatutory
 from app.repositories.employee_repository import (
     DepartmentRepository,
     DesignationRepository,
     EmployeeRepository,
+)
+from app.schemas.employee_schema import (
+    AddressIn,
+    BankAccountIn,
+    CreateEmployeeRequest,
+    DocumentIn,
+    StatutoryIn,
+    UpdateEmployeeRequest,
 )
 from app.services.google_drive_service import delete_photo
 
@@ -34,67 +43,84 @@ class EmployeeService:
         if desig_id is not None and self.desig_repo.get_by_id(desig_id) is None:
             raise DesignationNotFoundError()
 
-    def create_employee(
-        self,
-        *,
-        creator_id: int,
-        first_name: str,
-        last_name: str,
-        email: Optional[str] = None,
-        phone: Optional[str] = None,
-        gender: Optional[Gender] = None,
-        date_of_birth: Optional[date] = None,
-        date_of_joining: Optional[date] = None,
-        department_id: Optional[int] = None,
-        designation_id: Optional[int] = None,
-        address: Optional[str] = None,
-        photo_url: Optional[str] = None,
-        photo_drive_file_id: Optional[str] = None,
-    ) -> Employee:
-        self._validate_dept(department_id)
-        self._validate_desig(designation_id)
+    def _sync_addresses(self, employee: Employee, addresses: list[AddressIn]) -> None:
+        employee.addresses.clear()
+        for addr in addresses:
+            employee.addresses.append(EmployeeAddress(**addr.model_dump()))
+
+    def _sync_bank_accounts(self, employee: Employee, accounts: list[BankAccountIn]) -> None:
+        employee.bank_accounts.clear()
+        for acct in accounts:
+            employee.bank_accounts.append(EmployeeBankAccount(**acct.model_dump()))
+
+    def _sync_statutory(self, employee: Employee, statutory: StatutoryIn | None) -> None:
+        if statutory is None:
+            return
+        if employee.statutory is None:
+            employee.statutory = EmployeeStatutory(**statutory.model_dump())
+        else:
+            for k, v in statutory.model_dump().items():
+                setattr(employee.statutory, k, v)
+
+    def create_employee(self, payload: CreateEmployeeRequest, creator_id: int) -> Employee:
+        self._validate_dept(payload.department_id)
+        self._validate_desig(payload.designation_id)
 
         employee_code = self.repo.next_employee_code()
 
+        scalar_fields = payload.model_dump(
+            exclude={"addresses", "bank_accounts", "statutory"}
+        )
         employee = Employee(
             employee_code=employee_code,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            phone=phone,
-            gender=gender,
-            date_of_birth=date_of_birth,
-            date_of_joining=date_of_joining,
-            department_id=department_id,
-            designation_id=designation_id,
-            address=address,
-            photo_url=photo_url,
-            photo_drive_file_id=photo_drive_file_id,
             created_by=creator_id,
+            # email alias kept for list compat
+            email=payload.company_email,
+            **scalar_fields,
         )
-        self.repo.save(employee)
+        self.db.add(employee)
+        self.db.flush()
+
+        self._sync_addresses(employee, payload.addresses)
+        self._sync_bank_accounts(employee, payload.bank_accounts)
+        self._sync_statutory(employee, payload.statutory)
+
         self.db.commit()
         self.db.refresh(employee)
         return employee
 
-    def update_employee(self, employee_id: int, **kwargs) -> Employee:
+    def update_employee(self, employee_id: int, payload: UpdateEmployeeRequest) -> Employee:
         employee = self.repo.get_by_id(employee_id)
         if employee is None:
             raise EmployeeNotFoundError()
 
-        if "department_id" in kwargs:
-            self._validate_dept(kwargs["department_id"])
-        if "designation_id" in kwargs:
-            self._validate_desig(kwargs["designation_id"])
+        self._validate_dept(payload.department_id)
+        self._validate_desig(payload.designation_id)
 
-        # If a new photo is uploaded, clean up the old Drive file
-        new_photo_url = kwargs.get("photo_url")
-        if new_photo_url and new_photo_url != employee.photo_url and employee.photo_drive_file_id:
+        # Replace photo: delete old Drive file if URL changed
+        if (
+            payload.photo_url is not None
+            and payload.photo_url != employee.photo_url
+            and employee.photo_drive_file_id
+        ):
             delete_photo(employee.photo_drive_file_id)
 
-        for field, value in kwargs.items():
-            if value is not None or field in ("photo_url", "photo_drive_file_id", "email"):
-                setattr(employee, field, value)
+        scalar_fields = payload.model_dump(
+            exclude={"addresses", "bank_accounts", "statutory"},
+            exclude_none=True,
+        )
+        for k, v in scalar_fields.items():
+            setattr(employee, k, v)
+
+        if payload.company_email is not None:
+            employee.email = payload.company_email
+
+        if payload.addresses is not None:
+            self._sync_addresses(employee, payload.addresses)
+        if payload.bank_accounts is not None:
+            self._sync_bank_accounts(employee, payload.bank_accounts)
+        if payload.statutory is not None:
+            self._sync_statutory(employee, payload.statutory)
 
         self.db.commit()
         self.db.refresh(employee)
@@ -109,12 +135,39 @@ class EmployeeService:
     def list_employees(self) -> list[Employee]:
         return self.repo.list_all()
 
+    def list_for_dropdown(self) -> list[Employee]:
+        return self.repo.list_all()
+
     def deactivate_employee(self, employee_id: int) -> None:
         employee = self.repo.get_by_id(employee_id)
         if employee is None:
             raise EmployeeNotFoundError()
         self.repo.delete(employee)
         self.db.commit()
+
+    def add_document(self, employee_id: int, doc: DocumentIn) -> EmployeeDocument:
+        employee = self.repo.get_by_id(employee_id)
+        if employee is None:
+            raise EmployeeNotFoundError()
+        document = EmployeeDocument(employee_id=employee_id, **doc.model_dump())
+        self.db.add(document)
+        self.db.commit()
+        self.db.refresh(document)
+        return document
+
+    def delete_document(self, employee_id: int, document_id: int) -> None:
+        from sqlalchemy import select
+        doc = self.db.scalar(
+            select(EmployeeDocument).where(
+                EmployeeDocument.id == document_id,
+                EmployeeDocument.employee_id == employee_id,
+            )
+        )
+        if doc and doc.drive_file_id:
+            delete_photo(doc.drive_file_id)
+        if doc:
+            self.db.delete(doc)
+            self.db.commit()
 
 
 class DepartmentService:

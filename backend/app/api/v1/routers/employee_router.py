@@ -15,14 +15,18 @@ from app.core.permissions import (
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.employee_schema import (
-    CreateEmployeeRequest,
-    UpdateEmployeeRequest,
-    EmployeeOut,
-    DepartmentOut,
-    DesignationOut,
     CreateDepartmentRequest,
     CreateDesignationRequest,
+    CreateEmployeeRequest,
+    DepartmentOut,
+    DesignationOut,
+    DocumentIn,
+    DocumentOut,
+    DocumentUploadResponse,
+    EmployeeListItem,
+    EmployeeOut,
     PhotoUploadResponse,
+    UpdateEmployeeRequest,
 )
 from app.services.employee_service import DepartmentService, DesignationService, EmployeeService
 from app.services.google_drive_service import upload_photo
@@ -30,7 +34,13 @@ from app.services.google_drive_service import upload_photo
 router = APIRouter(tags=["employees"])
 
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-_MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB
+_ALLOWED_DOC_TYPES = {
+    "image/jpeg", "image/png", "image/webp",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+_MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 # ── Photo upload ─────────────────────────────────────────────────────────────
@@ -42,22 +52,38 @@ async def upload_employee_photo(
 ):
     if file.content_type not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=415, detail="Only JPEG, PNG, WebP, or GIF images are accepted.")
-
     file_bytes = await file.read()
-    if len(file_bytes) > _MAX_PHOTO_BYTES:
-        raise HTTPException(status_code=413, detail="Photo must be smaller than 5 MB.")
+    if len(file_bytes) > _MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="Photo must be smaller than 10 MB.")
 
-    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
-    unique_name = f"emp_{uuid.uuid4().hex}.{ext}"
-
+    ext = (file.filename or "photo.jpg").rsplit(".", 1)[-1]
+    unique_name = f"emp_photo_{uuid.uuid4().hex}.{ext}"
     photo_url, file_id = upload_photo(file_bytes, unique_name, file.content_type)
     if not photo_url or not file_id:
-        raise HTTPException(
-            status_code=503,
-            detail="Photo upload is not configured yet. Set up Google Drive service account first.",
-        )
-
+        raise HTTPException(status_code=503, detail="Photo upload failed. Check Google Drive configuration.")
     return PhotoUploadResponse(photo_url=photo_url, file_id=file_id)
+
+
+# ── Document upload ───────────────────────────────────────────────────────────
+
+@router.post("/employees/document-upload", response_model=DocumentUploadResponse, status_code=201)
+async def upload_employee_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission(CREATE_EMPLOYEE)),
+):
+    if file.content_type not in _ALLOWED_DOC_TYPES:
+        raise HTTPException(status_code=415, detail="Only PDF, Word, or image files are accepted.")
+    file_bytes = await file.read()
+    if len(file_bytes) > _MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="File must be smaller than 10 MB.")
+
+    original_filename = file.filename or "document"
+    ext = original_filename.rsplit(".", 1)[-1] if "." in original_filename else "pdf"
+    unique_name = f"emp_doc_{uuid.uuid4().hex}.{ext}"
+    file_url, file_id = upload_photo(file_bytes, unique_name, file.content_type)
+    if not file_url or not file_id:
+        raise HTTPException(status_code=503, detail="Document upload failed. Check Google Drive configuration.")
+    return DocumentUploadResponse(file_url=file_url, file_id=file_id, original_filename=original_filename)
 
 
 # ── Employees ─────────────────────────────────────────────────────────────────
@@ -68,18 +94,24 @@ def create_employee(
     current_user: User = Depends(require_permission(CREATE_EMPLOYEE)),
     db: Session = Depends(get_db),
 ):
-    return EmployeeService(db).create_employee(
-        creator_id=current_user.id,
-        **payload.model_dump(),
-    )
+    return EmployeeService(db).create_employee(payload, current_user.id)
 
 
-@router.get("/employees", response_model=list[EmployeeOut])
+@router.get("/employees", response_model=list[EmployeeListItem])
 def list_employees(
     current_user: User = Depends(require_permission(VIEW_EMPLOYEES)),
     db: Session = Depends(get_db),
 ):
     return EmployeeService(db).list_employees()
+
+
+@router.get("/employees/dropdown", response_model=list[EmployeeListItem])
+def employees_dropdown(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lightweight list for reporting manager selector."""
+    return EmployeeService(db).list_for_dropdown()
 
 
 @router.get("/employees/{employee_id}", response_model=EmployeeOut)
@@ -98,8 +130,7 @@ def update_employee(
     current_user: User = Depends(require_permission(EDIT_EMPLOYEE)),
     db: Session = Depends(get_db),
 ):
-    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
-    return EmployeeService(db).update_employee(employee_id, **updates)
+    return EmployeeService(db).update_employee(employee_id, payload)
 
 
 @router.delete("/employees/{employee_id}", status_code=204)
@@ -109,6 +140,28 @@ def deactivate_employee(
     db: Session = Depends(get_db),
 ):
     EmployeeService(db).deactivate_employee(employee_id)
+
+
+# ── Employee documents ────────────────────────────────────────────────────────
+
+@router.post("/employees/{employee_id}/documents", response_model=DocumentOut, status_code=201)
+def add_document(
+    employee_id: int,
+    payload: DocumentIn,
+    current_user: User = Depends(require_permission(EDIT_EMPLOYEE)),
+    db: Session = Depends(get_db),
+):
+    return EmployeeService(db).add_document(employee_id, payload)
+
+
+@router.delete("/employees/{employee_id}/documents/{document_id}", status_code=204)
+def delete_document(
+    employee_id: int,
+    document_id: int,
+    current_user: User = Depends(require_permission(EDIT_EMPLOYEE)),
+    db: Session = Depends(get_db),
+):
+    EmployeeService(db).delete_document(employee_id, document_id)
 
 
 # ── Departments ───────────────────────────────────────────────────────────────

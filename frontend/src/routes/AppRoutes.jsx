@@ -14,6 +14,7 @@ import SessionsPage from "../pages/account/SessionsPage";
 import LoginHistoryPage from "../pages/account/LoginHistoryPage";
 import EmployeeListPage from "../pages/employees/EmployeeListPage";
 import EmployeeFormPage from "../pages/employees/EmployeeFormPage";
+import EmployeeProfilePage from "../pages/employees/EmployeeProfilePage";
 
 export default function AppRoutes() {
   return (
@@ -37,6 +38,7 @@ export default function AppRoutes() {
           <Route path="/users/new" element={<CreateUserPage />} />
           <Route path="/employees" element={<EmployeeListPage />} />
           <Route path="/employees/new" element={<EmployeeFormPage />} />
+          <Route path="/employees/:id" element={<EmployeeProfilePage />} />
           <Route path="/employees/:id/edit" element={<EmployeeFormPage />} />
         </Route>
       </Route>

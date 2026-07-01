@@ -12,7 +12,11 @@ from app.models.google_account import GoogleAccount
 from app.models.audit_log import AuditLog
 from app.models.department import Department
 from app.models.designation import Designation
-from app.models.employee import Employee, Gender
+from app.models.employee import Employee, Gender, BloodGroup, MaritalStatus, EmploymentType, EmployeeStatus
+from app.models.employee_address import EmployeeAddress
+from app.models.employee_document import EmployeeDocument
+from app.models.employee_bank_account import EmployeeBankAccount
+from app.models.employee_statutory import EmployeeStatutory
 
 __all__ = [
     "User",
@@ -32,4 +36,12 @@ __all__ = [
     "Designation",
     "Employee",
     "Gender",
+    "BloodGroup",
+    "MaritalStatus",
+    "EmploymentType",
+    "EmployeeStatus",
+    "EmployeeAddress",
+    "EmployeeDocument",
+    "EmployeeBankAccount",
+    "EmployeeStatutory",
 ]
