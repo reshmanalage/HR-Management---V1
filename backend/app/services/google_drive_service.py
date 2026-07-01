@@ -1,41 +1,46 @@
 """
-Google Drive photo upload using a service account.
+Google Drive photo/document upload using OAuth2 refresh token.
 
-Setup (one-time):
-1. In Google Cloud Console → IAM → Service Accounts → create a service account.
-2. Create a JSON key and download it. Save it as backend/service_account.json.
-3. In Google Drive, create a folder (e.g. "HRMS Employee Photos").
-4. Share that folder with the service account email (Editor permission).
-5. Copy the folder ID from its URL and set GOOGLE_DRIVE_FOLDER_ID in .env.
+One-time setup:
+1. Run:  python get_drive_token.py
+2. Sign in with the Google account that owns the Drive folder.
+3. Copy the printed refresh token into backend/.env as:
+       GOOGLE_DRIVE_REFRESH_TOKEN=<token>
+4. Also set: GOOGLE_DRIVE_FOLDER_ID=<folder id from Drive URL>
 
-When GOOGLE_DRIVE_FOLDER_ID or the credentials file are missing the service
-falls back gracefully — upload calls return None so the photo slot stays empty
-rather than crashing the whole employee create/update flow.
+When either setting is missing the service degrades gracefully —
+upload calls return (None, None) so the photo slot stays empty
+rather than crashing the employee create/update flow.
 """
 
 import io
 import logging
-import os
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-_CREDENTIALS_PATH = Path(__file__).resolve().parents[2] / "service_account.json"
 
 
 def _build_drive_service():
     try:
-        from google.oauth2 import service_account
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
+        from app.core.config import settings
 
-        if not _CREDENTIALS_PATH.exists():
-            logger.warning("service_account.json not found — Drive uploads disabled")
+        if not settings.GOOGLE_DRIVE_REFRESH_TOKEN:
+            logger.warning("GOOGLE_DRIVE_REFRESH_TOKEN not set — Drive uploads disabled")
             return None
 
-        creds = service_account.Credentials.from_service_account_file(
-            str(_CREDENTIALS_PATH),
+        creds = Credentials(
+            token=None,
+            refresh_token=settings.GOOGLE_DRIVE_REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET,
             scopes=["https://www.googleapis.com/auth/drive"],
         )
+        # Force a refresh so we have a valid access token
+        creds.refresh(Request())
+
         return build("drive", "v3", credentials=creds, cache_discovery=False)
     except Exception as exc:
         logger.warning("Could not build Drive service: %s", exc)
@@ -46,12 +51,11 @@ def upload_photo(file_bytes: bytes, filename: str, mime_type: str) -> tuple[str 
     """
     Upload *file_bytes* to the configured Drive folder.
 
-    Returns (public_url, file_id) on success or (None, None) when Drive is
-    not configured or the upload fails.
+    Returns (public_url, file_id) on success or (None, None) on failure.
     """
     from app.core.config import settings
 
-    folder_id = getattr(settings, "GOOGLE_DRIVE_FOLDER_ID", None)
+    folder_id = settings.GOOGLE_DRIVE_FOLDER_ID
     if not folder_id:
         logger.warning("GOOGLE_DRIVE_FOLDER_ID not set — Drive uploads disabled")
         return None, None
@@ -63,10 +67,7 @@ def upload_photo(file_bytes: bytes, filename: str, mime_type: str) -> tuple[str 
     try:
         from googleapiclient.http import MediaIoBaseUpload
 
-        file_metadata = {
-            "name": filename,
-            "parents": [folder_id],
-        }
+        file_metadata = {"name": filename, "parents": [folder_id]}
         media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
 
         uploaded = (
@@ -82,9 +83,10 @@ def upload_photo(file_bytes: bytes, filename: str, mime_type: str) -> tuple[str 
             body={"type": "anyone", "role": "reader"},
         ).execute()
 
-        # Use the direct thumbnail URL so it embeds in <img> without redirect
+        # Thumbnail URL embeds directly in <img> without redirect
         public_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w400"
         return public_url, file_id
+
     except Exception as exc:
         logger.exception("Drive upload failed: %s", exc)
         return None, None

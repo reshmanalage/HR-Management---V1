@@ -5,6 +5,7 @@ backend/**/__pycache__/
 backend/.env
 backend/*.log
 backend/service_account.json
+backend/get_drive_token.py
 
 # Frontend
 frontend/node_modules/
