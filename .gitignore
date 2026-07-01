@@ -4,6 +4,7 @@ backend/__pycache__/
 backend/**/__pycache__/
 backend/.env
 backend/*.log
+backend/service_account.json
 
 # Frontend
 frontend/node_modules/

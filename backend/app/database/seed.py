@@ -18,6 +18,12 @@ BASE_PERMISSIONS = [
     ("LOCK_USER", "Lock/unlock user accounts", "AUTH"),
     ("ASSIGN_ROLE", "Assign roles to users", "AUTH"),
     ("MANAGE_ROLES", "Create/edit roles and permissions", "AUTH"),
+    ("CREATE_EMPLOYEE", "Add new employees", "EMPLOYEES"),
+    ("VIEW_EMPLOYEES", "View employee list and profiles", "EMPLOYEES"),
+    ("EDIT_EMPLOYEE", "Edit employee details", "EMPLOYEES"),
+    ("DELETE_EMPLOYEE", "Deactivate employees", "EMPLOYEES"),
+    ("MANAGE_DEPARTMENTS", "Create and manage departments", "EMPLOYEES"),
+    ("MANAGE_DESIGNATIONS", "Create and manage designations", "EMPLOYEES"),
 ]
 
 BASE_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "HR_EXECUTIVE", "EMPLOYEE"]

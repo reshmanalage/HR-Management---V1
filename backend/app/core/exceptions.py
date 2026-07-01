@@ -50,6 +50,26 @@ class SessionNotFoundError(AppError):
         super().__init__("Session not found", status_code=404)
 
 
+class EmployeeNotFoundError(AppError):
+    def __init__(self):
+        super().__init__("Employee not found", status_code=404)
+
+
+class EmployeeCodeAlreadyExistsError(AppError):
+    def __init__(self):
+        super().__init__("An employee with this code already exists", status_code=409)
+
+
+class DepartmentNotFoundError(AppError):
+    def __init__(self):
+        super().__init__("Department not found", status_code=404)
+
+
+class DesignationNotFoundError(AppError):
+    def __init__(self):
+        super().__init__("Designation not found", status_code=404)
+
+
 class GoogleAccountNotProvisionedError(AppError):
     def __init__(self):
         super().__init__(

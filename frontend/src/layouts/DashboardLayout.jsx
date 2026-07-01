@@ -50,6 +50,9 @@ export default function DashboardLayout() {
               </div>
             )}
             <nav className="flex flex-col gap-2 text-sm">
+              <Link to="/employees" className="text-gray-300 hover:text-white">
+                Employees
+              </Link>
               <Link to="/users" className="text-gray-300 hover:text-white">
                 Users
               </Link>

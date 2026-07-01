@@ -12,6 +12,8 @@ import UserListPage from "../pages/users/UserListPage";
 import CreateUserPage from "../pages/users/CreateUserPage";
 import SessionsPage from "../pages/account/SessionsPage";
 import LoginHistoryPage from "../pages/account/LoginHistoryPage";
+import EmployeeListPage from "../pages/employees/EmployeeListPage";
+import EmployeeFormPage from "../pages/employees/EmployeeFormPage";
 
 export default function AppRoutes() {
   return (
@@ -27,12 +29,15 @@ export default function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route path="/" element={<Navigate to="/users" replace />} />
+          <Route path="/" element={<Navigate to="/employees" replace />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/sessions" element={<SessionsPage />} />
           <Route path="/login-history" element={<LoginHistoryPage />} />
           <Route path="/users" element={<UserListPage />} />
           <Route path="/users/new" element={<CreateUserPage />} />
+          <Route path="/employees" element={<EmployeeListPage />} />
+          <Route path="/employees/new" element={<EmployeeFormPage />} />
+          <Route path="/employees/:id/edit" element={<EmployeeFormPage />} />
         </Route>
       </Route>
 

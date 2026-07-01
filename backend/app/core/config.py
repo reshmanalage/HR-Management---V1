@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
+    GOOGLE_DRIVE_FOLDER_ID: str = ""
+
     @property
     def DATABASE_URL(self) -> str:
         return (

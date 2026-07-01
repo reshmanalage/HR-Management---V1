@@ -10,6 +10,9 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.email_verification_token import EmailVerificationToken
 from app.models.google_account import GoogleAccount
 from app.models.audit_log import AuditLog
+from app.models.department import Department
+from app.models.designation import Designation
+from app.models.employee import Employee, Gender
 
 __all__ = [
     "User",
@@ -25,4 +28,8 @@ __all__ = [
     "EmailVerificationToken",
     "GoogleAccount",
     "AuditLog",
+    "Department",
+    "Designation",
+    "Employee",
+    "Gender",
 ]
