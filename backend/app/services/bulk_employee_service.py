@@ -43,7 +43,7 @@ COLUMNS = [
     ("designation",     "Designation",      "Software Engineer"),
     ("employment_type", "Employment Type",  "permanent / probation / contract / intern / part_time / consultant"),
     ("employee_status", "Employee Status",  "active / probation / notice_period / inactive / terminated"),
-    ("date_of_joining", "Date of Joining",  "2024-01-01"),
+    ("date_of_joining", "Date of Joining *", "2024-01-01"),
     ("branch",          "Branch",           "Mumbai"),
     ("location",        "Location",         "WFH / Office"),
     ("grade",           "Grade",            "L2"),
@@ -274,6 +274,11 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
             if not last_name:
                 raise ValueError("Last name is required")
 
+            # Date of joining — mandatory
+            doj = _parse_date(raw[13] if len(raw) > 13 else None)
+            if not doj:
+                raise ValueError("Date of joining is required (format: YYYY-MM-DD)")
+
             # Employee code
             emp_code_raw = _s(raw, 1)
             if emp_code_raw:
@@ -301,7 +306,7 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
 
             # Dates
             dob = _parse_date(raw[5] if len(raw) > 5 else None)
-            doj = _parse_date(raw[13] if len(raw) > 13 else None)
+            # doj already parsed and validated above
 
             # Employment type
             et_raw = _s(raw, 12).lower().replace(" ", "_")
