@@ -29,12 +29,20 @@ export default function BulkUploadPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const { data } = await api.post("/employees/bulk-upload", form);
+      const { data } = await api.post("/employees/bulk-upload", form, {
+        timeout: 120_000, // 2 min — large files can take a moment to parse
+      });
       setResult(data);
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
     } catch (err) {
-      setError(err.response?.data?.detail || "Upload failed");
+      if (err.code === "ECONNABORTED") {
+        setError("Upload timed out — the file may be too large or the server is busy. Try again.");
+      } else if (err.response?.status === 401) {
+        setError("Session expired. Please log in again and retry.");
+      } else {
+        setError(err.response?.data?.detail || err.message || "Upload failed");
+      }
     } finally {
       setUploading(false);
     }
