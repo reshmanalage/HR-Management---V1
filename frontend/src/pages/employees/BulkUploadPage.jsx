@@ -29,9 +29,7 @@ export default function BulkUploadPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const { data } = await api.post("/employees/bulk-upload", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await api.post("/employees/bulk-upload", form);
       setResult(data);
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
