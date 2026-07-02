@@ -134,15 +134,12 @@ async def bulk_upload_employees(
     current_user: User = Depends(require_permission(CREATE_EMPLOYEE)),
     db: Session = Depends(get_db),
 ):
-    if file.content_type not in (
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-    ):
+    if not (file.filename or "").lower().endswith(".xlsx"):
         raise HTTPException(400, "Only .xlsx files are accepted")
 
     content = await file.read()
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(400, "File too large (max 5 MB)")
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(400, "File too large (max 50 MB)")
 
     result = process_upload(db, content, created_by=current_user.id)
     return {

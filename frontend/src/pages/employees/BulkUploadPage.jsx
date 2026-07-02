@@ -118,7 +118,7 @@ export default function BulkUploadPage() {
             <div>
               <p className="text-3xl mb-2">📊</p>
               <p className="text-sm text-gray-500">Click to select an <strong>.xlsx</strong> file</p>
-              <p className="text-xs text-gray-400 mt-1">Max 5 MB</p>
+              <p className="text-xs text-gray-400 mt-1">Max 50 MB</p>
             </div>
           )}
         </div>
