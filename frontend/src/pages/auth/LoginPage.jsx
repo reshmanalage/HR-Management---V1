@@ -41,11 +41,12 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID or Email</label>
           <input
-            type="email"
+            type="text"
+            placeholder="e.g. EMP0001 or you@company.com"
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-            {...register("email", { required: "Email is required" })}
+            {...register("email", { required: "Employee ID or email is required" })}
           />
           {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>}
         </div>

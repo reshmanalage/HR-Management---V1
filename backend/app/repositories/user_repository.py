@@ -16,6 +16,14 @@ class UserRepository:
         stmt = select(User).where(User.email == email)
         return self.db.scalar(stmt)
 
+    def get_by_employee_code(self, code: str) -> User | None:
+        stmt = select(User).where(User.employee_code == code)
+        return self.db.scalar(stmt)
+
+    def get_by_identifier(self, identifier: str) -> User | None:
+        """Accept either email or employee code."""
+        return self.get_by_email(identifier) or self.get_by_employee_code(identifier)
+
     def list_all(self) -> list[User]:
         stmt = select(User).order_by(User.created_at.desc())
         return list(self.db.scalars(stmt).all())

@@ -46,7 +46,7 @@ class AuthService:
         ip_address: str | None,
         user_agent: str | None,
     ) -> TokenResponse:
-        user = self.user_repository.get_by_email(email)
+        user = self.user_repository.get_by_identifier(email)
 
         if user is None or user.password_hash is None:
             self.login_log_repository.create(
