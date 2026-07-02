@@ -15,6 +15,7 @@ import LoginHistoryPage from "../pages/account/LoginHistoryPage";
 import EmployeeListPage from "../pages/employees/EmployeeListPage";
 import EmployeeFormPage from "../pages/employees/EmployeeFormPage";
 import EmployeeProfilePage from "../pages/employees/EmployeeProfilePage";
+import BulkUploadPage from "../pages/employees/BulkUploadPage";
 import LeaveTypesPage from "../pages/leave/LeaveTypesPage";
 import HolidaysPage from "../pages/leave/HolidaysPage";
 import MyLeavesPage from "../pages/leave/MyLeavesPage";
@@ -42,6 +43,7 @@ export default function AppRoutes() {
           <Route path="/users/new" element={<CreateUserPage />} />
           <Route path="/employees" element={<EmployeeListPage />} />
           <Route path="/employees/new" element={<EmployeeFormPage />} />
+          <Route path="/employees/bulk-upload" element={<BulkUploadPage />} />
           <Route path="/employees/:id" element={<EmployeeProfilePage />} />
           <Route path="/employees/:id/edit" element={<EmployeeFormPage />} />
           <Route path="/leave/my" element={<MyLeavesPage />} />

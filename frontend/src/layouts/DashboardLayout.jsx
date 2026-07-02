@@ -54,6 +54,9 @@ export default function DashboardLayout() {
               <Link to="/employees" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
                 All Employees
               </Link>
+              <Link to="/employees/bulk-upload" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                Bulk Import
+              </Link>
 
               <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Leave</p>
               <Link to="/leave/my" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">

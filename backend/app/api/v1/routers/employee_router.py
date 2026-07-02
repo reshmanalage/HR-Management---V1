@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user, require_permission
@@ -30,6 +31,7 @@ from app.schemas.employee_schema import (
 )
 from app.services.employee_service import DepartmentService, DesignationService, EmployeeService
 from app.services.google_drive_service import upload_photo
+from app.services.bulk_employee_service import generate_template, process_upload
 
 router = APIRouter(tags=["employees"])
 
@@ -200,3 +202,49 @@ def create_designation(
     db: Session = Depends(get_db),
 ):
     return DesignationService(db).create_designation(payload.title)
+
+
+# ── Bulk import ───────────────────────────────────────────────────────────────
+
+@router.get("/employees/bulk-template")
+def download_bulk_template(_: User = Depends(get_current_user)):
+    xlsx_bytes = generate_template()
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=employee_import_template.xlsx"},
+    )
+
+
+@router.post("/employees/bulk-upload")
+async def bulk_upload_employees(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission(CREATE_EMPLOYEE)),
+    db: Session = Depends(get_db),
+):
+    if file.content_type not in (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+    ):
+        raise HTTPException(400, "Only .xlsx files are accepted")
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(400, "File too large (max 5 MB)")
+
+    result = process_upload(db, content, created_by=current_user.id)
+    return {
+        "total": result.total,
+        "success": result.success,
+        "failed": result.failed,
+        "rows": [
+            {
+                "row": r.row,
+                "status": r.status,
+                "employee_code": r.employee_code,
+                "name": r.name,
+                "error": r.error,
+            }
+            for r in result.rows
+        ],
+    }
