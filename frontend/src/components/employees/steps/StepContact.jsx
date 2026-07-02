@@ -75,11 +75,11 @@ export default function StepContact({ data, onChange }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Personal Email</label>
-          <input type="email" className={inputCls} value={data.personal_email ?? ""} onChange={set("personal_email")} placeholder="personal@gmail.com" />
+          <input type="text" className={inputCls} value={data.personal_email ?? ""} onChange={set("personal_email")} placeholder="personal@gmail.com" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Company Email</label>
-          <input type="email" className={inputCls} value={data.company_email ?? ""} onChange={set("company_email")} placeholder="name@company.com" />
+          <input type="text" className={inputCls} value={data.company_email ?? ""} onChange={set("company_email")} placeholder="name@company.com" />
         </div>
       </div>
 

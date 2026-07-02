@@ -111,8 +111,8 @@ export default function BulkUploadPage() {
         <div>
           <p className="text-sm font-medium text-gray-800">Employee Import Template</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Columns: Employee Code, Name, Gender, DOB, Email, Mobile, Department, Designation,
-            Employment Type, Status, Joining Date, Branch, Location, Grade
+            Only <strong>First Name</strong> and <strong>Last Name</strong> are required.
+            Department, Designation, Email, and all other columns are optional.
           </p>
         </div>
         <button
