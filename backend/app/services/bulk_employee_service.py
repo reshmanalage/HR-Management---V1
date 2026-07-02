@@ -204,9 +204,16 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
     ws = wb.active
 
     all_rows: list[tuple[int, tuple]] = []
+    consecutive_empty = 0
     for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         raw = tuple(row[:NCOLS])
-        if not _is_empty_row(raw):
+        if _is_empty_row(raw):
+            consecutive_empty += 1
+            if consecutive_empty >= 10:
+                # Stop reading — rest of sheet is blank
+                break
+        else:
+            consecutive_empty = 0
             all_rows.append((row_idx, raw))
 
     wb.close()
