@@ -129,3 +129,13 @@ class Employee(Base):
     statutory: Mapped["EmployeeStatutory | None"] = relationship(
         "EmployeeStatutory", back_populates="employee", uselist=False, cascade="all, delete-orphan"
     )
+    leave_balances: Mapped[list["LeaveBalance"]] = relationship(
+        "LeaveBalance", back_populates="employee", cascade="all, delete-orphan"
+    )
+    leave_applications: Mapped[list["LeaveApplication"]] = relationship(
+        "LeaveApplication", back_populates="employee", cascade="all, delete-orphan",
+        foreign_keys="LeaveApplication.employee_id",
+    )
+    pl_accrual_logs: Mapped[list["PLAccrualLog"]] = relationship(
+        "PLAccrualLog", back_populates="employee", cascade="all, delete-orphan"
+    )

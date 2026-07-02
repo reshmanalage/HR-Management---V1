@@ -17,6 +17,12 @@ from app.models.employee_address import EmployeeAddress
 from app.models.employee_document import EmployeeDocument
 from app.models.employee_bank_account import EmployeeBankAccount
 from app.models.employee_statutory import EmployeeStatutory
+from app.models.leave_type import LeaveType
+from app.models.holiday import Holiday, HolidayType
+from app.models.leave_balance import LeaveBalance
+from app.models.leave_application import LeaveApplication, LeaveStatus, HalfDayPeriod
+from app.models.leave_approval import LeaveApproval, ApprovalAction
+from app.models.pl_accrual_log import PLAccrualLog
 
 __all__ = [
     "User",
@@ -44,4 +50,14 @@ __all__ = [
     "EmployeeDocument",
     "EmployeeBankAccount",
     "EmployeeStatutory",
+    "LeaveType",
+    "Holiday",
+    "HolidayType",
+    "LeaveBalance",
+    "LeaveApplication",
+    "LeaveStatus",
+    "HalfDayPeriod",
+    "LeaveApproval",
+    "ApprovalAction",
+    "PLAccrualLog",
 ]

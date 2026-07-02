@@ -15,6 +15,10 @@ import LoginHistoryPage from "../pages/account/LoginHistoryPage";
 import EmployeeListPage from "../pages/employees/EmployeeListPage";
 import EmployeeFormPage from "../pages/employees/EmployeeFormPage";
 import EmployeeProfilePage from "../pages/employees/EmployeeProfilePage";
+import LeaveTypesPage from "../pages/leave/LeaveTypesPage";
+import HolidaysPage from "../pages/leave/HolidaysPage";
+import MyLeavesPage from "../pages/leave/MyLeavesPage";
+import LeaveApprovalsPage from "../pages/leave/LeaveApprovalsPage";
 
 export default function AppRoutes() {
   return (
@@ -40,6 +44,10 @@ export default function AppRoutes() {
           <Route path="/employees/new" element={<EmployeeFormPage />} />
           <Route path="/employees/:id" element={<EmployeeProfilePage />} />
           <Route path="/employees/:id/edit" element={<EmployeeFormPage />} />
+          <Route path="/leave/my" element={<MyLeavesPage />} />
+          <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
+          <Route path="/leave/types" element={<LeaveTypesPage />} />
+          <Route path="/leave/holidays" element={<HolidaysPage />} />
         </Route>
       </Route>
 

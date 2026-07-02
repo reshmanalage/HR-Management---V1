@@ -49,17 +49,34 @@ export default function DashboardLayout() {
                 </p>
               </div>
             )}
-            <nav className="flex flex-col gap-2 text-sm">
-              <Link to="/employees" className="text-gray-300 hover:text-white">
-                Employees
+            <nav className="flex flex-col gap-1 text-sm">
+              <p className="text-xs uppercase tracking-wider text-gray-500 mt-2 mb-1 px-1">Employees</p>
+              <Link to="/employees" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                All Employees
               </Link>
-              <Link to="/users" className="text-gray-300 hover:text-white">
+
+              <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Leave</p>
+              <Link to="/leave/my" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                My Leaves
+              </Link>
+              <Link to="/leave/approvals" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                Approvals
+              </Link>
+              <Link to="/leave/types" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                Leave Types
+              </Link>
+              <Link to="/leave/holidays" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                Holidays
+              </Link>
+
+              <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Admin</p>
+              <Link to="/users" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
                 Users
               </Link>
-              <Link to="/sessions" className="text-gray-300 hover:text-white">
+              <Link to="/sessions" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
                 Active Sessions
               </Link>
-              <Link to="/login-history" className="text-gray-300 hover:text-white">
+              <Link to="/login-history" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
                 Login History
               </Link>
             </nav>
