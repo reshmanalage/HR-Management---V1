@@ -55,6 +55,20 @@ export default function BulkUploadPage() {
   const successRows = result?.rows.filter((r) => r.status === "success") || [];
   const failedRows  = result?.rows.filter((r) => r.status === "error")   || [];
 
+  function downloadFailedRows() {
+    const b64 = result?.failed_rows_xlsx_b64;
+    if (!b64) return;
+    const binary = atob(b64);
+    const bytes  = new Uint8Array(binary.length).map((_, i) => binary.charCodeAt(i));
+    const blob   = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement("a");
+    a.href       = url;
+    a.download   = "failed_rows.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -159,8 +173,16 @@ export default function BulkUploadPage() {
           {/* Failed rows */}
           {failedRows.length > 0 && (
             <div className="bg-white rounded-xl shadow overflow-hidden mb-6">
-              <div className="px-4 py-3 border-b bg-red-50 text-sm font-medium text-red-700">
-                Failed Rows — fix these and re-upload
+              <div className="px-4 py-3 border-b bg-red-50 flex items-center justify-between">
+                <span className="text-sm font-medium text-red-700">Failed Rows — fix and re-upload</span>
+                {result.failed_rows_xlsx_b64 && (
+                  <button
+                    onClick={downloadFailedRows}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-red-400 text-red-600 rounded-lg text-xs hover:bg-red-50"
+                  >
+                    ↓ Download Failed Rows (.xlsx)
+                  </button>
+                )}
               </div>
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 uppercase text-xs">

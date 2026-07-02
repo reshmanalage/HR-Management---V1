@@ -146,6 +146,7 @@ async def bulk_upload_employees(
         "total": result.total,
         "success": result.success,
         "failed": result.failed,
+        "failed_rows_xlsx_b64": result.failed_rows_xlsx_b64,
         "rows": [
             {
                 "row": r.row,
