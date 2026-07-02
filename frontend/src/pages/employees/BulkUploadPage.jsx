@@ -2,8 +2,6 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../services/api";
 
-const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:7000/api/v1";
-
 export default function BulkUploadPage() {
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -44,22 +42,16 @@ export default function BulkUploadPage() {
     }
   }
 
-  function downloadTemplate() {
-    const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+  async function downloadTemplate() {
+    const { data } = await api.get("/employees/bulk-template", { responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }));
     const a = document.createElement("a");
-    a.href = `${BASE}/employees/bulk-template`;
-    // Attach auth header via fetch then trigger download
-    fetch(`${BASE}/employees/bulk-template`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        a.href = url;
-        a.download = "employee_import_template.xlsx";
-        a.click();
-        URL.revokeObjectURL(url);
-      });
+    a.href = url;
+    a.download = "employee_import_template.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const successRows = result?.rows.filter((r) => r.status === "success") || [];
