@@ -2,28 +2,32 @@
 Bulk employee import via Excel (.xlsx).
 
 Speed strategy:
-  - openpyxl read_only=True  → skips cell-style tree, ~3× faster parse
-  - All lookups pre-loaded into Python dicts before row loop (6 queries total)
+  - openpyxl read_only=True  → skips cell-style tree, ~3x faster parse
+  - All lookups fetched as raw tuples (no ORM object hydration, no lazy loads)
   - Bulk-create new depts/desigs in one INSERT each
   - Single multi-row INSERT for all valid employees
+  - Row-by-row fallback only if bulk INSERT fails, with per-row error capture
   - Failed rows packaged as base64 xlsx for re-upload
 """
 from __future__ import annotations
 
 import base64
 import io
+import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
-from sqlalchemy import select, insert as sa_insert, func
+from sqlalchemy import select, insert as sa_insert, func, text
 from sqlalchemy.orm import Session
 
 from app.models.department import Department
 from app.models.designation import Designation
 from app.models.employee import Employee, EmployeeStatus, EmploymentType
+
+log = logging.getLogger(__name__)
 
 COLUMNS = [
     ("employee_code",   "Employee Code",    "EMP0001 (leave blank to auto-generate)"),
@@ -102,7 +106,6 @@ class BulkImportResult:
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _s(raw: tuple, col: int) -> str:
-    """Return cell value as stripped string (1-indexed col)."""
     v = raw[col - 1] if col - 1 < len(raw) else None
     return str(v).strip() if v is not None else ""
 
@@ -164,27 +167,42 @@ def _build_failed_xlsx(failed: list[tuple[int, tuple, str]]) -> str:
 # ── main processor ────────────────────────────────────────────────────────────
 
 def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImportResult:
-    # read_only=True skips style tree — ~3x faster for large files
-    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True, read_only=True)
-    ws = wb.active
     result = BulkImportResult()
 
-    # ── Step 1: pre-load all lookups into memory ──────────────────────────────
+    # ── Step 1: pre-load lookups as raw tuples — zero ORM hydration ──────────
+    log.info("bulk_import: loading existing codes/emails/depts/desigs")
+
     existing_codes: set[str] = set(
-        c for c in db.scalars(select(Employee.employee_code)) if c
+        row[0] for row in db.execute(
+            select(Employee.employee_code).where(Employee.employee_code.isnot(None))
+        )
     )
     existing_emails: set[str] = set(
-        e for e in db.scalars(select(Employee.company_email)) if e
+        row[0] for row in db.execute(
+            select(Employee.company_email).where(Employee.company_email.isnot(None))
+        )
     )
-    dept_map:  dict[str, int] = {}
-    desig_map: dict[str, int] = {}
-    for d in db.scalars(select(Department)):
-        dept_map[d.name.lower()] = d.id
-    for d in db.scalars(select(Designation)):
-        desig_map[d.title.lower()] = d.id
+    # Fetch only id + name columns — never touch .employees relationship
+    dept_map: dict[str, int] = {
+        row[1].lower(): row[0]
+        for row in db.execute(select(Department.id, Department.name))
+    }
+    desig_map: dict[str, int] = {
+        row[1].lower(): row[0]
+        for row in db.execute(select(Designation.id, Designation.title))
+    }
     max_emp_id: int = db.scalar(select(func.max(Employee.id))) or 0
 
-    # ── Step 2: read all non-empty data rows via iter_rows (fast) ─────────────
+    log.info(
+        "bulk_import: lookups ready — codes=%d emails=%d depts=%d desigs=%d",
+        len(existing_codes), len(existing_emails), len(dept_map), len(desig_map),
+    )
+
+    # ── Step 2: parse Excel with read_only streaming ──────────────────────────
+    log.info("bulk_import: parsing Excel (%d bytes)", len(file_bytes))
+    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True, read_only=True)
+    ws = wb.active
+
     all_rows: list[tuple[int, tuple]] = []
     for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         raw = tuple(row[:NCOLS])
@@ -193,28 +211,46 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
 
     wb.close()
     result.total = len(all_rows)
+    log.info("bulk_import: %d data rows found", result.total)
 
     if not all_rows:
         return result
 
-    # ── Step 3: bulk-create any new depts / desigs needed ────────────────────
-    needed_depts  = {_s(raw, 10).lower() for _, raw in all_rows if _s(raw, 10) and _s(raw, 10).lower() not in dept_map}
-    needed_desigs = {_s(raw, 11).lower() for _, raw in all_rows if _s(raw, 11) and _s(raw, 11).lower() not in desig_map}
+    # ── Step 3: bulk-create new depts / desigs in one shot each ──────────────
+    needed_depts = {
+        _s(raw, 10).lower() for _, raw in all_rows
+        if _s(raw, 10) and _s(raw, 10).lower() not in dept_map
+    }
+    needed_desigs = {
+        _s(raw, 11).lower() for _, raw in all_rows
+        if _s(raw, 11) and _s(raw, 11).lower() not in desig_map
+    }
 
     if needed_depts:
+        log.info("bulk_import: creating %d new departments", len(needed_depts))
         db.execute(sa_insert(Department), [{"name": n.title()} for n in needed_depts])
         db.flush()
-        for d in db.scalars(select(Department).where(Department.name.in_([n.title() for n in needed_depts]))):
-            dept_map[d.name.lower()] = d.id
+        for row in db.execute(
+            select(Department.id, Department.name).where(
+                Department.name.in_([n.title() for n in needed_depts])
+            )
+        ):
+            dept_map[row[1].lower()] = row[0]
 
     if needed_desigs:
+        log.info("bulk_import: creating %d new designations", len(needed_desigs))
         db.execute(sa_insert(Designation), [{"title": t.title()} for t in needed_desigs])
         db.flush()
-        for d in db.scalars(select(Designation).where(Designation.title.in_([t.title() for t in needed_desigs]))):
-            desig_map[d.title.lower()] = d.id
+        for row in db.execute(
+            select(Designation.id, Designation.title).where(
+                Designation.title.in_([t.title() for t in needed_desigs])
+            )
+        ):
+            desig_map[row[1].lower()] = row[0]
 
-    # ── Step 4: validate rows fully in memory ─────────────────────────────────
-    valid_payloads: list[tuple[int, dict, str, str]] = []  # (row_idx, payload, code, name)
+    # ── Step 4: validate every row in memory (zero DB queries) ───────────────
+    log.info("bulk_import: validating %d rows in memory", len(all_rows))
+    valid_payloads: list[tuple[int, dict, str, str]] = []
     failed_raw:     list[tuple[int, tuple, str]]     = []
     used_codes:     set[str] = set()
     used_emails:    set[str] = set()
@@ -284,8 +320,8 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                 personal_email=_s(raw, 7) or None,
                 company_email=company_email,
                 mobile_number=_s(raw, 9) or None,
-                department_id=dept_map.get(_s(raw, 10).lower()),
-                designation_id=desig_map.get(_s(raw, 11).lower()),
+                department_id=dept_map.get(_s(raw, 10).lower()) if _s(raw, 10) else None,
+                designation_id=desig_map.get(_s(raw, 11).lower()) if _s(raw, 11) else None,
                 employment_type=employment_type,
                 employee_status=employee_status,
                 date_of_joining=doj,
@@ -301,16 +337,20 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
             result.rows.append(RowResult(row=row_idx, status="error", name=full_name, error=str(exc)))
             failed_raw.append((row_idx, raw, str(exc)))
 
+    log.info("bulk_import: %d valid, %d invalid", len(valid_payloads), len(failed_raw))
+
     # ── Step 5: single bulk INSERT ────────────────────────────────────────────
     if valid_payloads:
         try:
+            log.info("bulk_import: executing bulk INSERT for %d rows", len(valid_payloads))
             db.execute(sa_insert(Employee), [p for _, p, _, _ in valid_payloads])
             db.commit()
+            log.info("bulk_import: bulk INSERT committed successfully")
             for row_idx, _, emp_code, name in valid_payloads:
                 result.success += 1
                 result.rows.append(RowResult(row=row_idx, status="success", employee_code=emp_code, name=name))
-        except Exception:
-            # Bulk failed — retry row-by-row to isolate bad ones
+        except Exception as bulk_exc:
+            log.error("bulk_import: bulk INSERT failed (%s), falling back to row-by-row", bulk_exc)
             db.rollback()
             for row_idx, payload, emp_code, name in valid_payloads:
                 try:
@@ -329,4 +369,5 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
         result.failed_rows_xlsx_b64 = _build_failed_xlsx(failed_raw)
 
     result.rows.sort(key=lambda r: r.row)
+    log.info("bulk_import: done — success=%d failed=%d", result.success, result.failed)
     return result
