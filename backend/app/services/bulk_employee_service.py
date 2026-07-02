@@ -33,7 +33,7 @@ COLUMNS = [
     ("employee_code",   "Employee Code",    "EMP0001 (leave blank to auto-generate)"),
     ("first_name",      "First Name *",     "John"),
     ("middle_name",     "Middle Name",      ""),
-    ("last_name",       "Last Name *",      "Doe"),
+    ("last_name",       "Last Name",        "Doe"),
     ("gender",          "Gender",           "male / female / other"),
     ("date_of_birth",   "Date of Birth",    "1990-01-25"),
     ("personal_email",  "Personal Email",   "john@gmail.com"),
@@ -271,8 +271,6 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
         try:
             if not first_name:
                 raise ValueError("First name is required")
-            if not last_name:
-                raise ValueError("Last name is required")
 
             # Date of joining — mandatory
             doj = _parse_date(raw[13] if len(raw) > 13 else None)
