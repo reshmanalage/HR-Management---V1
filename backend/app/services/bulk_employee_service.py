@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -298,38 +299,45 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                     raise ValueError(f"Company email '{company_email}' already in use")
                 used_emails.add(company_email)
 
-            # Gender
-            gender_raw = _s(raw, 5).lower()
-            gender = gender_raw if gender_raw in ("male", "female", "other") else None
+            # Gender — accept male/female/other (any case) or M/F shortcuts
+            _g = _s(raw, 5).strip().lower()
+            _GENDER_MAP = {"male": "male", "m": "male", "female": "female", "f": "female", "other": "other", "o": "other"}
+            gender = _GENDER_MAP.get(_g)
 
             # Dates
             dob = _parse_date(raw[5] if len(raw) > 5 else None)
             # doj already parsed and validated above
 
-            # Employment type
-            et_raw = _s(raw, 12).lower().replace(" ", "_")
+            # Employment type — lowercase, accept spaces or underscores
+            et_raw = _s(raw, 12).strip().lower().replace(" ", "_")
             try:
                 employment_type: str | None = EmploymentType(et_raw).value if et_raw else None
             except ValueError:
                 employment_type = None
 
-            # Employee status
-            es_raw = _s(raw, 13).lower().replace(" ", "_")
+            # Employee status — lowercase
+            es_raw = _s(raw, 13).strip().lower().replace(" ", "_")
             try:
                 employee_status = EmployeeStatus(es_raw).value if es_raw else EmployeeStatus.ACTIVE.value
             except ValueError:
                 employee_status = EmployeeStatus.ACTIVE.value
 
+            # Mobile — take only first number if multiple are entered (e.g. "98765/ 87654")
+            mobile_raw = _s(raw, 9)
+            import re as _re
+            mobile_clean = re.split(r"[/|,\\]", mobile_raw)[0].strip() if mobile_raw else ""
+            mobile_number = mobile_clean[:20] or None  # varchar(20) hard cap
+
             valid_payloads.append((row_idx, dict(
                 employee_code=emp_code,
                 first_name=first_name,
                 middle_name=_s(raw, 3) or None,
-                last_name=last_name,
+                last_name=last_name or None,
                 gender=gender,
                 date_of_birth=dob,
                 personal_email=_s(raw, 7) or None,
                 company_email=company_email,
-                mobile_number=_s(raw, 9) or None,
+                mobile_number=mobile_number,
                 department_id=dept_map.get(_s(raw, 10).lower()) if _s(raw, 10) else None,
                 designation_id=desig_map.get(_s(raw, 11).lower()) if _s(raw, 11) else None,
                 employment_type=employment_type,
