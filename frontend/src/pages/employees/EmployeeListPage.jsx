@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listEmployees, deactivateEmployee } from "../../services/employeeService";
 
-const PLACEHOLDER = "https://ui-avatars.com/api/?background=6366f1&color=fff&size=80&name=";
+const AVATAR_COLORS = ["bg-indigo-500","bg-violet-500","bg-pink-500","bg-rose-500","bg-orange-500","bg-amber-500","bg-teal-500","bg-cyan-500","bg-sky-500","bg-emerald-500"];
+function avatarColor(name) { let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))&0xff; return AVATAR_COLORS[h % AVATAR_COLORS.length]; }
+function initials(f,l) { return ((f?.[0]??"")+( l?.[0]??"")).toUpperCase() || "?"; }
 
 const STATUS_STYLES = {
   active:        "bg-green-100 text-green-700",
@@ -137,8 +139,7 @@ export default function EmployeeListPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((emp) => {
-                const name = `${emp.first_name} ${emp.last_name}`;
-                const avatarUrl = emp.photo_url || `${PLACEHOLDER}${encodeURIComponent(emp.first_name + "+" + emp.last_name)}`;
+                const name = `${emp.first_name} ${emp.last_name}`.trim();
                 return (
                   <tr
                     key={emp.id}
@@ -147,12 +148,13 @@ export default function EmployeeListPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={avatarUrl}
-                          alt={name}
-                          className="w-9 h-9 rounded-full object-cover bg-indigo-100 shrink-0"
-                          onError={(e) => { e.target.src = `${PLACEHOLDER}${encodeURIComponent(emp.first_name + "+" + emp.last_name)}`; }}
-                        />
+                        {emp.photo_url ? (
+                          <img src={emp.photo_url} alt={name} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold ${avatarColor(name)}`}>
+                            {initials(emp.first_name, emp.last_name)}
+                          </div>
+                        )}
                         <div>
                           <p className="font-medium text-gray-900">{name}</p>
                           {emp.company_email && <p className="text-xs text-gray-400">{emp.company_email}</p>}

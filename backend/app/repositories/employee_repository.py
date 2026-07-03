@@ -1,5 +1,5 @@
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.employee import Employee
 from app.models.department import Department
@@ -11,7 +11,20 @@ class EmployeeRepository:
         self.db = db
 
     def get_by_id(self, employee_id: int) -> Employee | None:
-        return self.db.get(Employee, employee_id)
+        # Eagerly load every relationship EmployeeOut touches — avoids N+1 on profile view
+        return self.db.scalar(
+            select(Employee)
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.designation),
+                joinedload(Employee.reporting_manager),
+                selectinload(Employee.addresses),
+                selectinload(Employee.documents),
+                selectinload(Employee.bank_accounts),
+                joinedload(Employee.statutory),
+            )
+            .where(Employee.id == employee_id)
+        )
 
     def get_by_code(self, code: str) -> Employee | None:
         return self.db.scalar(select(Employee).where(Employee.employee_code == code))
@@ -20,14 +33,27 @@ class EmployeeRepository:
         return self.db.scalar(select(Employee).where(Employee.email == email))
 
     def list_all(self, *, include_inactive: bool = False) -> list[Employee]:
-        q = select(Employee).options(
-            joinedload(Employee.department),
-            joinedload(Employee.designation),
+        # Single JOIN query — department + designation only (list view needs nothing else)
+        q = (
+            select(Employee)
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.designation),
+            )
         )
         if not include_inactive:
             q = q.where(Employee.is_active.is_(True))
         q = q.order_by(Employee.first_name, Employee.last_name)
         return list(self.db.scalars(q).unique())
+
+    def list_for_dropdown(self) -> list[Employee]:
+        # Minimal query — only columns the dropdown needs, no JOINs
+        q = (
+            select(Employee)
+            .where(Employee.is_active.is_(True))
+            .order_by(Employee.first_name, Employee.last_name)
+        )
+        return list(self.db.scalars(q))
 
     def next_employee_code(self) -> str:
         result = self.db.scalar(select(func.max(Employee.id)))

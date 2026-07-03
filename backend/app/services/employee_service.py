@@ -136,7 +136,7 @@ class EmployeeService:
         return self.repo.list_all()
 
     def list_for_dropdown(self) -> list[Employee]:
-        return self.repo.list_all()
+        return self.repo.list_for_dropdown()
 
     def deactivate_employee(self, employee_id: int) -> None:
         employee = self.repo.get_by_id(employee_id)
