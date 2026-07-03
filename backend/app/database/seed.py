@@ -64,14 +64,15 @@ def seed() -> None:
                 db.flush()
             roles_by_name[name] = existing
 
+        # Super Admin gets every permission in the DB — including any added in future
         super_admin_role = roles_by_name["SUPER_ADMIN"]
-        for permission in permissions_by_code.values():
-            exists = (
-                db.query(RolePermission)
-                .filter_by(role_id=super_admin_role.id, permission_id=permission.id)
-                .first()
-            )
-            if exists is None:
+        all_permissions = db.query(Permission).all()
+        existing_sa_perm_ids = {
+            rp.permission_id
+            for rp in db.query(RolePermission).filter_by(role_id=super_admin_role.id)
+        }
+        for permission in all_permissions:
+            if permission.id not in existing_sa_perm_ids:
                 db.add(RolePermission(role_id=super_admin_role.id, permission_id=permission.id))
 
         admin_user = db.query(User).filter_by(email=SUPER_ADMIN_EMAIL).first()
