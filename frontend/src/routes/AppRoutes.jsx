@@ -20,6 +20,7 @@ import LeaveTypesPage from "../pages/leave/LeaveTypesPage";
 import HolidaysPage from "../pages/leave/HolidaysPage";
 import MyLeavesPage from "../pages/leave/MyLeavesPage";
 import LeaveApprovalsPage from "../pages/leave/LeaveApprovalsPage";
+import ShiftsPage from "../pages/shifts/ShiftsPage";
 
 export default function AppRoutes() {
   return (
@@ -50,6 +51,7 @@ export default function AppRoutes() {
           <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
           <Route path="/leave/types" element={<LeaveTypesPage />} />
           <Route path="/leave/holidays" element={<HolidaysPage />} />
+          <Route path="/shifts" element={<ShiftsPage />} />
         </Route>
       </Route>
 

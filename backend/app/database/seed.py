@@ -6,6 +6,7 @@ Run once after migrations, since there is no public registration page:
 from app.core.security import hash_password
 from app.database.session import SessionLocal
 from app.models.leave_type import LeaveType
+from app.models.shift import Shift
 from app.models.permission import Permission
 from app.models.role import Role
 from app.models.role_permission import RolePermission
@@ -28,6 +29,13 @@ BASE_PERMISSIONS = [
 ]
 
 BASE_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "HR_EXECUTIVE", "EMPLOYEE"]
+
+BASE_SHIFTS = [
+    # (name, start_time, end_time, is_flexible, break_minutes, grace_minutes, description)
+    ("General Shift",  "09:00", "18:00", False, 60, 15, "Standard office shift 9 AM to 6 PM"),
+    ("Morning Shift",  "08:30", "19:00", False, 60, 15, "Extended morning shift 8:30 AM to 7 PM"),
+    ("Mixed Shift",    None,    None,    True,  60, 15, "Flexible shift with no fixed start/end time"),
+]
 
 BASE_LEAVE_TYPES = [
     # (name, code, description, days_allowed, is_paid, carry_forward, is_earned, accrual_threshold, accrual_per_month)
@@ -106,6 +114,15 @@ def seed() -> None:
                     accrual_threshold_days=threshold,
                     accrual_per_month=accrual,
                     is_active=True,
+                ))
+
+        # Shifts
+        for name, start, end, flexible, brk, grace, desc in BASE_SHIFTS:
+            if db.query(Shift).filter_by(name=name).first() is None:
+                db.add(Shift(
+                    name=name, start_time=start, end_time=end,
+                    is_flexible=flexible, break_duration_minutes=brk,
+                    grace_period_minutes=grace, description=desc, is_active=True,
                 ))
 
         db.commit()

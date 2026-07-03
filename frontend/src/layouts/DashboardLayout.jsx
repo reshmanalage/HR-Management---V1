@@ -72,6 +72,11 @@ export default function DashboardLayout() {
                 Holidays
               </Link>
 
+              <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Attendance</p>
+              <Link to="/shifts" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
+                Shift Timings
+              </Link>
+
               <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Admin</p>
               <Link to="/users" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
                 Users
