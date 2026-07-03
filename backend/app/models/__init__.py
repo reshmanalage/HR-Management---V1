@@ -24,6 +24,7 @@ from app.models.leave_application import LeaveApplication, LeaveStatus, HalfDayP
 from app.models.leave_approval import LeaveApproval, ApprovalAction
 from app.models.pl_accrual_log import PLAccrualLog
 from app.models.shift import Shift
+from app.models.attendance import AttendanceRecord
 
 __all__ = [
     "User",
@@ -62,4 +63,5 @@ __all__ = [
     "ApprovalAction",
     "PLAccrualLog",
     "Shift",
+    "AttendanceRecord",
 ]

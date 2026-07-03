@@ -21,6 +21,8 @@ import HolidaysPage from "../pages/leave/HolidaysPage";
 import MyLeavesPage from "../pages/leave/MyLeavesPage";
 import LeaveApprovalsPage from "../pages/leave/LeaveApprovalsPage";
 import ShiftsPage from "../pages/shifts/ShiftsPage";
+import AttendancePage from "../pages/attendance/AttendancePage";
+import AttendanceUploadPage from "../pages/attendance/AttendanceUploadPage";
 
 export default function AppRoutes() {
   return (
@@ -52,6 +54,8 @@ export default function AppRoutes() {
           <Route path="/leave/types" element={<LeaveTypesPage />} />
           <Route path="/leave/holidays" element={<HolidaysPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />
+          <Route path="/attendance" element={<AttendancePage />} />
+          <Route path="/attendance/upload" element={<AttendanceUploadPage />} />
         </Route>
       </Route>
 
