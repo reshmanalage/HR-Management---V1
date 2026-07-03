@@ -324,7 +324,6 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
 
             # Mobile — take only first number if multiple are entered (e.g. "98765/ 87654")
             mobile_raw = _s(raw, 9)
-            import re as _re
             mobile_clean = re.split(r"[/|,\\]", mobile_raw)[0].strip() if mobile_raw else ""
             mobile_number = mobile_clean[:20] or None  # varchar(20) hard cap
 
@@ -332,7 +331,7 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                 employee_code=emp_code,
                 first_name=first_name,
                 middle_name=_s(raw, 3) or None,
-                last_name=last_name or None,
+                last_name=last_name or "",  # NOT NULL column — use empty string when absent
                 gender=gender,
                 date_of_birth=dob,
                 personal_email=_s(raw, 7) or None,
