@@ -70,6 +70,18 @@ export default function CreateUserPage() {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Password <span className="text-gray-400 font-normal">(optional — leave blank to send set-password email)</span>
+          </label>
+          <input
+            type="password"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+            placeholder="Set an initial password"
+            {...register("password")}
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
           <select
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm"

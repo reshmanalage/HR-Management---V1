@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.exceptions import EmailAlreadyExistsError, RoleNotFoundError, UserNotFoundError
-from app.core.security import generate_opaque_token, hash_opaque_token
+from app.core.security import generate_opaque_token, hash_opaque_token, hash_password
 from app.models.user import User
 from app.models.user_role import UserRole
 from app.repositories.audit_log_repository import AuditLogRepository
@@ -32,6 +32,7 @@ class UserService:
         role_id: int,
         employee_code: str | None,
         ip_address: str | None,
+        password: str | None = None,
     ) -> User:
         if self.user_repository.get_by_email(email) is not None:
             raise EmailAlreadyExistsError()
@@ -40,16 +41,14 @@ class UserService:
         if role is None:
             raise RoleNotFoundError()
 
-        # password_hash stays None until the user sets it via the emailed
-        # set-password link - this mirrors how Google-only accounts work and
-        # means an unset account simply can't log in yet (see AuthService.login).
         user = User(
             first_name=first_name,
             last_name=last_name,
             email=email,
             employee_code=employee_code,
-            password_hash=None,
+            password_hash=hash_password(password) if password else None,
             is_active=True,
+            is_email_verified=bool(password),  # skip email verify when password is set by admin
             created_by=creator_id,
         )
         self.user_repository.save(user)
@@ -74,8 +73,14 @@ class UserService:
 
         self.db.commit()
 
-        set_password_link = f"{settings.FRONTEND_ORIGIN}/reset-password?token={raw_token}"
-        send_welcome_email(to_email=user.email, set_password_link=set_password_link)
+        if not password:
+            # No password set by admin — send set-password email and log link as fallback
+            set_password_link = f"{settings.FRONTEND_ORIGIN}/reset-password?token={raw_token}"
+            import logging
+            logging.getLogger(__name__).info(
+                "SET-PASSWORD LINK for %s → %s", email, set_password_link
+            )
+            send_welcome_email(to_email=user.email, set_password_link=set_password_link)
 
         return user
 

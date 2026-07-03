@@ -18,6 +18,7 @@ class UserController:
             role_id=payload.role_id,
             employee_code=payload.employee_code,
             ip_address=request.client.host if request.client else None,
+            password=payload.password or None,
         )
         _, roles = self.user_service.get_user(user.id)
         return UserOut(

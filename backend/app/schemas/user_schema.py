@@ -31,3 +31,4 @@ class CreateUserRequest(BaseModel):
     email: EmailStr
     role_id: int
     employee_code: str | None = None
+    password: str | None = None  # if set, used directly; otherwise a set-password email is sent
