@@ -268,6 +268,7 @@ class EmployeeListItem(BaseModel):
     id: int
     employee_code: str
     first_name: str
+    middle_name: Optional[str] = None
     last_name: str
     display_name: Optional[str] = None
     photo_url: Optional[str] = None

@@ -139,7 +139,7 @@ export default function EmployeeListPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((emp) => {
-                const name = `${emp.first_name} ${emp.last_name}`.trim();
+                const name = [emp.first_name, emp.middle_name, emp.last_name].filter(Boolean).join(" ");
                 return (
                   <tr
                     key={emp.id}
