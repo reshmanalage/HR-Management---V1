@@ -6,12 +6,20 @@ const AVATAR_COLORS = ["bg-indigo-500","bg-violet-500","bg-pink-500","bg-rose-50
 function avatarColor(name) { let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))&0xff; return AVATAR_COLORS[h % AVATAR_COLORS.length]; }
 function initials(f,l) { return ((f?.[0]??"")+( l?.[0]??"")).toUpperCase() || "?"; }
 
-const STATUS_STYLES = {
-  active:        "bg-green-100 text-green-700",
-  probation:     "bg-yellow-100 text-yellow-700",
-  notice_period: "bg-orange-100 text-orange-700",
-  inactive:      "bg-gray-100 text-gray-500",
-  terminated:    "bg-red-100 text-red-600",
+const STATUS_DOT = {
+  active:        "bg-green-500",
+  probation:     "bg-yellow-400",
+  notice_period: "bg-orange-400",
+  inactive:      "bg-gray-400",
+  terminated:    "bg-red-500",
+};
+
+const STATUS_TEXT = {
+  active:        "text-green-700",
+  probation:     "text-yellow-700",
+  notice_period: "text-orange-600",
+  inactive:      "text-gray-500",
+  terminated:    "text-red-600",
 };
 
 const STATUS_LABELS = {
@@ -170,8 +178,10 @@ export default function EmployeeListPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${emp.employee_status === "active" ? "bg-green-500" : "bg-red-500"}`} />
-                        <span className="text-xs text-gray-600">{STATUS_LABELS[emp.employee_status] ?? emp.employee_status}</span>
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[emp.employee_status] ?? "bg-gray-400"}`} />
+                        <span className={`text-xs font-medium ${STATUS_TEXT[emp.employee_status] ?? "text-gray-600"}`}>
+                          {STATUS_LABELS[emp.employee_status] ?? emp.employee_status}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
