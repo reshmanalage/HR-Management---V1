@@ -50,9 +50,8 @@ export default function BulkUploadPage() {
 
   async function downloadTemplate() {
     const { data } = await api.get("/employees/bulk-template", { responseType: "blob" });
-    const url = URL.createObjectURL(new Blob([data], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }));
+    // data is already a Blob when responseType:"blob" — don't re-wrap it
+    const url = URL.createObjectURL(data);
     const a = document.createElement("a");
     a.href = url;
     a.download = "employee_import_template.xlsx";
