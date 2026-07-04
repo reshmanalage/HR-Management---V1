@@ -110,8 +110,9 @@ export default function BulkUploadPage() {
         <div>
           <p className="text-sm font-medium text-gray-800">Employee Import Template</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Required fields: <strong>First Name</strong> and <strong>Date of Joining</strong>.
-            Department, Designation, Email, and all other columns are optional.
+            Required: <strong>First Name</strong> and <strong>Date of Joining</strong>.
+            Template includes 38 columns across 6 sections: Core, Personal, Employment, Address, Bank, and Statutory.
+            Fill only what you have — all other columns are optional.
           </p>
         </div>
         <button
