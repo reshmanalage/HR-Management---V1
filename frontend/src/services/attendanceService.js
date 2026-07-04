@@ -14,6 +14,9 @@ export const listCycles = () => api.get("/attendance/cycles").then((r) => r.data
 export const listEmployeesInCycle = (cycleStart) =>
   api.get("/attendance/employees", { params: { cycle_start: cycleStart } }).then((r) => r.data);
 
+export const updateAttendanceRecord = (id, data) =>
+  api.patch(`/attendance/${id}`, data).then((r) => r.data);
+
 export const listAttendanceRecords = (cycleStart, employeeCode) =>
   api.get("/attendance", {
     params: { cycle_start: cycleStart, ...(employeeCode ? { employee_code: employeeCode } : {}) },

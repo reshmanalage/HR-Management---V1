@@ -17,6 +17,12 @@ class AttendanceRecordOut(BaseModel):
     duration_minutes: int | None
 
 
+class AttendanceRecordUpdate(BaseModel):
+    in_time: str | None = None   # "HH:MM" or null to clear
+    out_time: str | None = None
+    status: str | None = None
+
+
 class AttendanceImportResult(BaseModel):
     inserted: int
     skipped: int

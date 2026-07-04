@@ -4,6 +4,7 @@ import {
   listCycles,
   listEmployeesInCycle,
   listAttendanceRecords,
+  updateAttendanceRecord,
 } from "../../services/attendanceService";
 
 const STATUS_STYLE = {
@@ -144,16 +145,20 @@ export default function AttendancePage() {
         <p className="text-sm text-gray-400">No records found.</p>
       ) : selectedEmp ? (
         /* Single employee detail view */
-        <SingleEmployeeView emp={grid[selectedEmp]} dateList={dateList} />
+        <SingleEmployeeView
+          emp={grid[selectedEmp]}
+          dateList={dateList}
+          onBack={() => setSelectedEmp("")}
+        />
       ) : (
         /* Summary table: one row per employee */
-        <SummaryTable empList={empList} dateList={dateList} grid={grid} />
+        <SummaryTable empList={empList} dateList={dateList} grid={grid} onSelect={setSelectedEmp} />
       )}
     </div>
   );
 }
 
-function SummaryTable({ empList, dateList, grid }) {
+function SummaryTable({ empList, dateList, grid, onSelect }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="min-w-full text-xs">
@@ -167,51 +172,107 @@ function SummaryTable({ empList, dateList, grid }) {
                 {d.slice(5)} {/* MM-DD */}
               </th>
             ))}
-            <th className="px-3 py-2 text-center font-medium text-gray-600 whitespace-nowrap">P</th>
-            <th className="px-3 py-2 text-center font-medium text-gray-600 whitespace-nowrap">A</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {empList.map((emp) => {
-            const present = Object.values(emp.days).filter((r) => r.status === "P" || r.status === "WOP").length;
-            const absent = Object.values(emp.days).filter((r) => r.status === "A").length;
-            return (
-              <tr key={emp.code} className="hover:bg-gray-50">
-                <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 px-3 py-2 whitespace-nowrap border-r border-gray-100 font-medium text-gray-800">
+          {empList.map((emp) => (
+            <tr key={emp.code} className="hover:bg-gray-50">
+              <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 px-3 py-2 whitespace-nowrap border-r border-gray-100">
+                <button
+                  onClick={() => onSelect(emp.code)}
+                  className="font-medium text-indigo-600 hover:text-indigo-800 hover:underline text-left"
+                >
                   {emp.name}
-                  <span className="ml-1 text-gray-400 font-normal">#{emp.code}</span>
-                </td>
-                {dateList.map((d) => {
-                  const rec = emp.days[d];
-                  if (!rec) return <td key={d} className="px-1 py-1 text-center text-gray-300">—</td>;
-                  const style = STATUS_STYLE[rec.status] || "bg-gray-50 text-gray-500";
+                </button>
+                <span className="ml-1 text-gray-400 text-[11px]">#{emp.code}</span>
+              </td>
+              {dateList.map((d) => {
+                const rec = emp.days[d];
+                if (!rec) return <td key={d} className="px-1 py-1 text-center text-gray-200">—</td>;
+
+                const isAbsent = rec.status === "A";
+                const isOff = rec.status === "WO";
+
+                if (isAbsent) {
                   return (
-                    <td key={d} className="px-1 py-1 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${style}`}>
-                        {rec.status || "—"}
-                      </span>
+                    <td key={d} className="px-1 py-1 text-center bg-red-50">
+                      <span className="block text-[10px] font-semibold text-red-500">Absent</span>
                     </td>
                   );
-                })}
-                <td className="px-3 py-2 text-center font-semibold text-green-700">{present}</td>
-                <td className="px-3 py-2 text-center font-semibold text-red-600">{absent}</td>
-              </tr>
-            );
-          })}
+                }
+                if (isOff) {
+                  return (
+                    <td key={d} className="px-1 py-1 text-center bg-gray-50">
+                      <span className="block text-[10px] text-gray-400">Off</span>
+                    </td>
+                  );
+                }
+                const incomplete = !rec.in_time || !rec.out_time;
+                const cellBg = incomplete ? "bg-amber-50" : "bg-green-50";
+                return (
+                  <td key={d} className={`px-1 py-1 text-center ${cellBg}`}>
+                    <span className={`block text-[10px] font-medium leading-tight ${rec.in_time ? (incomplete ? "text-amber-700" : "text-green-700") : "text-red-400"}`}>
+                      {rec.in_time ?? "—"}
+                    </span>
+                    <span className={`block text-[10px] leading-tight ${rec.out_time ? (incomplete ? "text-amber-600" : "text-green-600") : "text-red-400"}`}>
+                      {rec.out_time ?? "—"}
+                    </span>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
 
-function SingleEmployeeView({ emp, dateList }) {
+function SingleEmployeeView({ emp, dateList, onBack }) {
+  const [days, setDays] = useState(() => emp?.days ?? {});
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ in_time: "", out_time: "", status: "" });
+  const [saving, setSaving] = useState(false);
+
   if (!emp) return null;
-  const present = Object.values(emp.days).filter((r) => r.status === "P" || r.status === "WOP").length;
-  const absent = Object.values(emp.days).filter((r) => r.status === "A").length;
-  const wo = Object.values(emp.days).filter((r) => r.status === "WO" || r.status === "WOP").length;
+
+  const allDays = Object.values(days);
+  const present = allDays.filter((r) => r.status === "P" || r.status === "WOP").length;
+  const absent = allDays.filter((r) => r.status === "A").length;
+  const wo = allDays.filter((r) => r.status === "WO" || r.status === "WOP").length;
+
+  function startEdit(rec) {
+    setEditingId(rec.id);
+    setEditForm({ in_time: rec.in_time ?? "", out_time: rec.out_time ?? "", status: rec.status ?? "" });
+  }
+
+  function cancelEdit() { setEditingId(null); }
+
+  async function saveEdit(rec) {
+    setSaving(true);
+    try {
+      const updated = await updateAttendanceRecord(rec.id, {
+        in_time: editForm.in_time || null,
+        out_time: editForm.out_time || null,
+        status: editForm.status || null,
+      });
+      setDays((prev) => ({ ...prev, [rec.date]: updated }));
+      setEditingId(null);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="text-sm text-gray-500 hover:text-gray-800">← Back</button>
+        <div>
+          <h3 className="font-semibold text-gray-800">{emp.name}</h3>
+          <p className="text-xs text-gray-400">#{emp.code}</p>
+        </div>
+      </div>
+
       <div className="flex gap-4">
         {[
           { label: "Present", value: present, color: "text-green-700" },
@@ -234,29 +295,99 @@ function SingleEmployeeView({ emp, dateList }) {
               <th className="text-center px-4 py-2 font-medium text-gray-600">In Time</th>
               <th className="text-center px-4 py-2 font-medium text-gray-600">Out Time</th>
               <th className="text-center px-4 py-2 font-medium text-gray-600">Duration</th>
+              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {dateList.map((d) => {
-              const rec = emp.days[d];
-              const style = rec ? (STATUS_STYLE[rec.status] || "bg-gray-50 text-gray-500") : "";
+              const rec = days[d];
+              const isEditing = rec && editingId === rec.id;
+              const statusStyle = rec ? (STATUS_STYLE[rec.status] || "bg-gray-50 text-gray-500") : "";
+              const isPresent = rec && rec.status !== "A" && rec.status !== "WO";
+
+              if (isEditing) {
+                return (
+                  <tr key={d} className="bg-indigo-50">
+                    <td className="px-4 py-2 text-gray-700 whitespace-nowrap">
+                      {new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
+                        weekday: "short", day: "numeric", month: "short",
+                      })}
+                    </td>
+                    <td className="px-2 py-1 text-center">
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                        className="border border-gray-300 rounded px-1 py-0.5 text-xs w-20"
+                      >
+                        {["P", "A", "WO", "WOP"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1 text-center">
+                      <input
+                        type="time"
+                        value={editForm.in_time}
+                        onChange={(e) => setEditForm((f) => ({ ...f, in_time: e.target.value }))}
+                        className="border border-gray-300 rounded px-1 py-0.5 text-xs"
+                      />
+                    </td>
+                    <td className="px-2 py-1 text-center">
+                      <input
+                        type="time"
+                        value={editForm.out_time}
+                        onChange={(e) => setEditForm((f) => ({ ...f, out_time: e.target.value }))}
+                        className="border border-gray-300 rounded px-1 py-0.5 text-xs"
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-center text-gray-400 text-xs">—</td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => saveEdit(rec)}
+                        disabled={saving}
+                        className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded mr-1 disabled:opacity-50"
+                      >
+                        {saving ? "…" : "Save"}
+                      </button>
+                      <button onClick={cancelEdit} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-300">
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }
+
               return (
                 <tr key={d} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-gray-700">
+                  <td className="px-4 py-2 text-gray-700 whitespace-nowrap">
                     {new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
                       weekday: "short", day: "numeric", month: "short",
                     })}
                   </td>
                   <td className="px-4 py-2 text-center">
                     {rec ? (
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${style}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusStyle}`}>
                         {rec.status}
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-2 text-center text-gray-700">{rec ? fmt(rec.in_time) : "—"}</td>
-                  <td className="px-4 py-2 text-center text-gray-700">{rec ? fmt(rec.out_time) : "—"}</td>
+                  <td className={`px-4 py-2 text-center font-medium ${rec?.in_time ? "text-gray-800" : isPresent ? "text-red-400 italic" : "text-gray-400"}`}>
+                    {rec ? (rec.in_time ? fmt(rec.in_time) : isPresent ? "Missing" : "—") : "—"}
+                  </td>
+                  <td className={`px-4 py-2 text-center font-medium ${rec?.out_time ? "text-gray-800" : isPresent ? "text-red-400 italic" : "text-gray-400"}`}>
+                    {rec ? (rec.out_time ? fmt(rec.out_time) : isPresent ? "Missing" : "—") : "—"}
+                  </td>
                   <td className="px-4 py-2 text-center text-gray-600">{rec ? fmtDuration(rec.duration_minutes) : "—"}</td>
+                  <td className="px-4 py-2 text-right">
+                    {rec && (
+                      <button
+                        onClick={() => startEdit(rec)}
+                        className="text-xs text-indigo-500 hover:text-indigo-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </td>
                 </tr>
               );
             })}

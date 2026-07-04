@@ -6,7 +6,8 @@ from app.auth.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.attendance import AttendanceRecord
 from app.models.user import User
-from app.schemas.attendance_schema import AttendanceImportResult, AttendanceRecordOut
+from app.core.exceptions import NotFoundError
+from app.schemas.attendance_schema import AttendanceImportResult, AttendanceRecordOut, AttendanceRecordUpdate
 from app.services.attendance_import_service import import_attendance
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -46,6 +47,23 @@ def list_records(
         q = q.where(AttendanceRecord.raw_employee_code == employee_code)
     q = q.order_by(AttendanceRecord.raw_employee_name, AttendanceRecord.date)
     return list(db.scalars(q))
+
+
+@router.patch("/{record_id}", response_model=AttendanceRecordOut)
+def update_record(
+    record_id: int,
+    payload: AttendanceRecordUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    rec = db.get(AttendanceRecord, record_id)
+    if rec is None:
+        raise NotFoundError("Attendance record not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(rec, field, value)
+    db.commit()
+    db.refresh(rec)
+    return rec
 
 
 @router.get("/employees", response_model=list[dict])
