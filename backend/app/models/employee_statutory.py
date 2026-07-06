@@ -29,7 +29,7 @@ class EmployeeStatutory(Base):
 
     # Tax / Compliance
     pan_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    aadhaar_number: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    aadhaar_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     pt_state: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="State for Professional Tax slab")
 
     # KYC flags
