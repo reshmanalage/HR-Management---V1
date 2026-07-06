@@ -13,7 +13,7 @@ class EmployeeStatutory(Base):
     employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, unique=True)
 
     # PF / EPF
-    uan_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    uan_number: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True)
     pf_member_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     pf_eligible: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     pf_joining_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -22,7 +22,7 @@ class EmployeeStatutory(Base):
     edli_eligible: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     # ESIC
-    esic_ip_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    esic_ip_number: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True)
     esic_eligible: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     esic_joining_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     esic_dispensary: Mapped[str | None] = mapped_column(String(200), nullable=True)
