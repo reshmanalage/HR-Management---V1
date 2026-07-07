@@ -30,7 +30,11 @@ class EmployeeRepository:
         return self.db.scalar(select(Employee).where(Employee.employee_code == code))
 
     def get_by_email(self, email: str) -> Employee | None:
-        return self.db.scalar(select(Employee).where(Employee.email == email))
+        return self.db.scalar(
+            select(Employee).where(
+                (Employee.email == email) | (Employee.company_email == email) | (Employee.personal_email == email)
+            )
+        )
 
     def list_all(self, *, include_inactive: bool = False) -> list[Employee]:
         # Single JOIN query — department + designation only (list view needs nothing else)

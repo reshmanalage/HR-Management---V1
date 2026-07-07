@@ -10,6 +10,7 @@ from app.models.employee import (
     Gender,
     MaritalStatus,
 )
+from app.schemas.shift_schema import ShiftOut
 
 
 # ── Lookup schemas ────────────────────────────────────────────────────────────
@@ -160,7 +161,8 @@ class CreateEmployeeRequest(BaseModel):
     branch: Optional[str] = None
     location: Optional[str] = None
     grade: Optional[str] = None
-    shift: Optional[str] = None
+    shift: Optional[str] = None       # free-text display name (legacy)
+    shift_id: Optional[int] = None    # FK to shifts table
     cost_center: Optional[str] = None
 
     # Step 3 — Contact
@@ -205,6 +207,7 @@ class UpdateEmployeeRequest(BaseModel):
     location: Optional[str] = None
     grade: Optional[str] = None
     shift: Optional[str] = None
+    shift_id: Optional[int] = None
     cost_center: Optional[str] = None
 
     personal_email: Optional[EmailStr] = None
@@ -251,6 +254,8 @@ class EmployeeOut(BaseModel):
     location: Optional[str] = None
     grade: Optional[str] = None
     shift: Optional[str] = None
+    shift_id: Optional[int] = None
+    shift_obj: Optional[ShiftOut] = None
     cost_center: Optional[str] = None
 
     addresses: list[AddressOut] = []

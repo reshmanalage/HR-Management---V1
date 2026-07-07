@@ -20,9 +20,13 @@ import LeaveTypesPage from "../pages/leave/LeaveTypesPage";
 import HolidaysPage from "../pages/leave/HolidaysPage";
 import MyLeavesPage from "../pages/leave/MyLeavesPage";
 import LeaveApprovalsPage from "../pages/leave/LeaveApprovalsPage";
+import LeaveBalancesPage from "../pages/leave/LeaveBalancesPage";
+import RegularizationPage from "../pages/leave/RegularizationPage";
 import ShiftsPage from "../pages/shifts/ShiftsPage";
 import AttendancePage from "../pages/attendance/AttendancePage";
 import AttendanceUploadPage from "../pages/attendance/AttendanceUploadPage";
+import PayrollPolicyPage from "../pages/payroll/PayrollPolicyPage";
+import LOPReportPage from "../pages/payroll/LOPReportPage";
 
 export default function AppRoutes() {
   return (
@@ -53,9 +57,13 @@ export default function AppRoutes() {
           <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
           <Route path="/leave/types" element={<LeaveTypesPage />} />
           <Route path="/leave/holidays" element={<HolidaysPage />} />
+          <Route path="/leave/regularization" element={<RegularizationPage />} />
+          <Route path="/leave/balances" element={<LeaveBalancesPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/attendance/upload" element={<AttendanceUploadPage />} />
+          <Route path="/payroll/policy" element={<PayrollPolicyPage />} />
+          <Route path="/payroll/lop-report" element={<LOPReportPage />} />
         </Route>
       </Route>
 

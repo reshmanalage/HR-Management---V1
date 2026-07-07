@@ -95,7 +95,8 @@ class Employee(Base):
     branch: Mapped[str | None] = mapped_column(String(150), nullable=True)
     location: Mapped[str | None] = mapped_column(String(150), nullable=True)
     grade: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    shift: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    shift: Mapped[str | None] = mapped_column(String(100), nullable=True)   # legacy display name
+    shift_id: Mapped[int | None] = mapped_column(ForeignKey("shifts.id", ondelete="SET NULL"), nullable=True)
     cost_center: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Photo
@@ -114,6 +115,7 @@ class Employee(Base):
     # Relationships
     department: Mapped["Department | None"] = relationship("Department", back_populates="employees")
     designation: Mapped["Designation | None"] = relationship("Designation", back_populates="employees")
+    shift_obj: Mapped["Shift | None"] = relationship("Shift", foreign_keys=[shift_id])
     reporting_manager: Mapped["Employee | None"] = relationship(
         "Employee", foreign_keys=[reporting_manager_id], remote_side="Employee.id"
     )
@@ -138,4 +140,8 @@ class Employee(Base):
     )
     pl_accrual_logs: Mapped[list["PLAccrualLog"]] = relationship(
         "PLAccrualLog", back_populates="employee", cascade="all, delete-orphan"
+    )
+    regularizations: Mapped[list["AttendanceRegularization"]] = relationship(
+        "AttendanceRegularization", back_populates="employee", cascade="all, delete-orphan",
+        foreign_keys="AttendanceRegularization.employee_id",
     )

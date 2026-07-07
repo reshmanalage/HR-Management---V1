@@ -14,6 +14,8 @@ export const deleteHoliday = (id) => api.delete(`/leave/holidays/${id}`);
 
 // Leave Balances
 export const initLeaveBalances = (data) => api.post("/leave/balances/init", data).then((r) => r.data);
+export const initLeaveBalancesBulk = (year) =>
+  api.post("/leave/balances/init-bulk", null, { params: { year } }).then((r) => r.data);
 export const getMyBalances = (year) => api.get("/leave/balances/me", { params: { year } }).then((r) => r.data);
 export const getEmployeeBalances = (employeeId, year) =>
   api.get(`/leave/balances/${employeeId}`, { params: { year } }).then((r) => r.data);

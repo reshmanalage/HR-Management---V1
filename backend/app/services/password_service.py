@@ -76,6 +76,7 @@ class PasswordService:
             raise InvalidCredentialsError()
 
         user.password_hash = hash_password(new_password)
+        user.plain_password = None  # user owns their password now
         self.user_repository.save(user)
 
         self.refresh_token_repository.revoke_all_for_user(user.id)

@@ -60,12 +60,18 @@ def _parse_employee_header(cell_value: str):
 def import_attendance(file_bytes: bytes, db: Session) -> dict:
     wb = openpyxl.load_workbook(BytesIO(file_bytes), read_only=True, data_only=True)
 
-    # Pre-load employee code → id map
+    # Pre-load biometric_code → employee_id (primary match)
     emp_code_to_id: dict[str, int] = {
         row[0]: row[1]
-        for row in db.execute(select(Employee.employee_code, Employee.id))
+        for row in db.execute(select(Employee.biometric_code, Employee.id))
         if row[0]
     }
+    # Fallback: employee_code → id (for cases not yet mapped)
+    emp_code_to_id.update({
+        row[0]: row[1]
+        for row in db.execute(select(Employee.employee_code, Employee.id))
+        if row[0] and row[0] not in emp_code_to_id
+    })
 
     inserted = 0
     skipped = 0

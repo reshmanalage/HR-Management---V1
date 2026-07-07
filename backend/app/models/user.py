@@ -15,6 +15,7 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    plain_password: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Last admin-set password (visible to super admin only)")
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
@@ -29,6 +30,9 @@ class User(Base):
 
     user_roles: Mapped[list["UserRole"]] = relationship(
         "UserRole", foreign_keys="UserRole.user_id", back_populates="user", cascade="all, delete-orphan"
+    )
+    module_access: Mapped[list["UserModuleAccess"]] = relationship(
+        "UserModuleAccess", back_populates="user", cascade="all, delete-orphan"
     )
     google_account: Mapped["GoogleAccount | None"] = relationship(
         "GoogleAccount", back_populates="user", uselist=False, cascade="all, delete-orphan"

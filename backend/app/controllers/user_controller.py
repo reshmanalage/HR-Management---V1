@@ -5,6 +5,22 @@ from app.schemas.user_schema import CreateUserRequest, UserOut
 from app.services.user_service import UserService
 
 
+def _user_out(user, roles) -> UserOut:
+    return UserOut(
+        id=user.id,
+        employee_code=user.employee_code,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        is_active=user.is_active,
+        is_locked=user.is_locked,
+        is_email_verified=user.is_email_verified,
+        created_at=user.created_at,
+        roles=roles,
+        plain_password=user.plain_password,
+    )
+
+
 class UserController:
     def __init__(self, db: Session):
         self.user_service = UserService(db)
@@ -21,33 +37,12 @@ class UserController:
             password=payload.password or None,
         )
         _, roles = self.user_service.get_user(user.id)
-        return UserOut(
-            id=user.id,
-            employee_code=user.employee_code,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            email=user.email,
-            is_active=user.is_active,
-            is_locked=user.is_locked,
-            is_email_verified=user.is_email_verified,
-            created_at=user.created_at,
-            roles=roles,
-        )
+        return _user_out(user, roles)
+
+    def reset_password(self, user_id: int, new_password: str) -> UserOut:
+        user = self.user_service.admin_reset_password(user_id, new_password)
+        _, roles = self.user_service.get_user(user.id)
+        return _user_out(user, roles)
 
     def list_users(self) -> list[UserOut]:
-        results = self.user_service.list_users()
-        return [
-            UserOut(
-                id=user.id,
-                employee_code=user.employee_code,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                email=user.email,
-                is_active=user.is_active,
-                is_locked=user.is_locked,
-                is_email_verified=user.is_email_verified,
-                created_at=user.created_at,
-                roles=roles,
-            )
-            for user, roles in results
-        ]
+        return [_user_out(user, roles) for user, roles in self.user_service.list_users()]

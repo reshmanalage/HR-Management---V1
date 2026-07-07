@@ -23,6 +23,8 @@ class UserOut(BaseModel):
     is_email_verified: bool
     created_at: datetime
     roles: list[str] = []
+    modules: list[str] = []
+    plain_password: str | None = None  # visible to super admin only; None once user changes their own password
 
 
 class CreateUserRequest(BaseModel):

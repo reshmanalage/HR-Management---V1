@@ -10,7 +10,20 @@ const EMPTY_FORM = {
   grace_period_minutes: 15,
   description: "",
   is_active: true,
+  half_day_late_cutoff: "",
+  half_day_early_cutoff: "",
 };
+
+function computeMidpoint(start, end) {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const startM = sh * 60 + sm;
+  const endM   = eh * 60 + em;
+  if (endM <= startM) return null;
+  const mid = startM + Math.floor((endM - startM) / 2);
+  return `${String(Math.floor(mid / 60)).padStart(2, "0")}:${String(mid % 60).padStart(2, "0")}`;
+}
 
 function formatTime(t) {
   if (!t) return "—";
@@ -59,6 +72,8 @@ export default function ShiftsPage() {
       grace_period_minutes: shift.grace_period_minutes,
       description: shift.description ?? "",
       is_active: shift.is_active,
+      half_day_late_cutoff: shift.half_day_late_cutoff ?? "",
+      half_day_early_cutoff: shift.half_day_early_cutoff ?? "",
     });
     setError("");
     setShowForm(true);
@@ -84,6 +99,8 @@ export default function ShiftsPage() {
         break_duration_minutes: parseInt(form.break_duration_minutes, 10) || 0,
         grace_period_minutes: parseInt(form.grace_period_minutes, 10) || 0,
         description: form.description || null,
+        half_day_late_cutoff: form.half_day_late_cutoff || null,
+        half_day_early_cutoff: form.half_day_early_cutoff || null,
       };
       if (editing) {
         await updateShift(editing, payload);
@@ -180,14 +197,31 @@ export default function ShiftsPage() {
               </div>
 
               {!shift.is_flexible && shift.start_time && shift.end_time && (
-                <div className="bg-gray-50 rounded px-3 py-2 text-xs text-gray-600">
-                  Working hours:{" "}
-                  {(() => {
-                    const [sh, sm] = shift.start_time.split(":").map(Number);
-                    const [eh, em] = shift.end_time.split(":").map(Number);
-                    const total = (eh * 60 + em) - (sh * 60 + sm) - shift.break_duration_minutes;
-                    return `${Math.floor(total / 60)}h ${total % 60}m`;
-                  })()}
+                <div className="bg-gray-50 rounded px-3 py-2 text-xs text-gray-600 space-y-1">
+                  <div>
+                    Working hours:{" "}
+                    {(() => {
+                      const [sh, sm] = shift.start_time.split(":").map(Number);
+                      const [eh, em] = shift.end_time.split(":").map(Number);
+                      const total = (eh * 60 + em) - (sh * 60 + sm) - shift.break_duration_minutes;
+                      return `${Math.floor(total / 60)}h ${total % 60}m`;
+                    })()}
+                  </div>
+                  <div className="text-gray-500">
+                    Half-day late cutoff:{" "}
+                    <span className="font-medium text-gray-700">
+                      {shift.half_day_late_cutoff
+                        ? formatTime(shift.half_day_late_cutoff)
+                        : `${formatTime(computeMidpoint(shift.start_time, shift.end_time))} (auto)`}
+                    </span>
+                    {" / "}
+                    Early cutoff:{" "}
+                    <span className="font-medium text-gray-700">
+                      {shift.half_day_early_cutoff
+                        ? formatTime(shift.half_day_early_cutoff)
+                        : `${formatTime(computeMidpoint(shift.start_time, shift.end_time))} (auto)`}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -292,6 +326,34 @@ export default function ShiftsPage() {
                   />
                 </div>
               </div>
+
+              {!form.is_flexible && (
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { name: "half_day_late_cutoff",  label: "Half-Day Late Cutoff"  },
+                    { name: "half_day_early_cutoff", label: "Half-Day Early Cutoff" },
+                  ].map(({ name, label }) => {
+                    const midpoint = computeMidpoint(form.start_time, form.end_time);
+                    return (
+                      <div key={name}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                        <input
+                          type="time"
+                          name={name}
+                          value={form[name]}
+                          onChange={handleChange}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                        />
+                        {midpoint && !form[name] && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Auto: {midpoint} (shift midpoint)
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>

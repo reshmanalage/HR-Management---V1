@@ -11,6 +11,7 @@ from app.models.user import User
 from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.leave_schema import (
     CancelLeaveRequest,
+    LeaveApplicationEdit,
     HolidayCreate,
     HolidayOut,
     HolidayUpdate,
@@ -38,7 +39,7 @@ router = APIRouter(prefix="/leave", tags=["leave"])
 
 
 def _is_hr_admin(user: User) -> bool:
-    return any(r.role.name in ("SUPER_ADMIN", "HR_ADMIN") for r in user.user_roles)
+    return any(r.role.name in ("SUPER_ADMIN", "HR_ADMIN", "EXECUTIVE_ASSISTANT") for r in user.user_roles)
 
 
 def _get_employee_id(user: User, db: Session) -> int | None:
@@ -148,6 +149,17 @@ def init_leave_balances(
     return [_balance_out(b) for b in balances]
 
 
+@router.post("/balances/init-bulk")
+def init_leave_balances_bulk(
+    year: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not _is_hr_admin(current_user):
+        raise AppError("HR admin access required", 403)
+    return LeaveBalanceService(db).init_bulk(year)
+
+
 @router.get("/balances/me", response_model=list[LeaveBalanceOut])
 def my_balances(
     year: int = Query(default=date.today().year),
@@ -234,6 +246,19 @@ def pending_for_me(
     if not emp_id:
         return []
     return [_app_out(a) for a in LeaveApplicationService(db).list_pending_for_manager(emp_id)]
+
+
+@router.patch("/applications/{app_id}", response_model=LeaveApplicationOut)
+def edit_leave(
+    app_id: int,
+    payload: LeaveApplicationEdit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not any(r.role.name in ("SUPER_ADMIN", "EXECUTIVE_ASSISTANT") for r in current_user.user_roles):
+        raise AppError("Only SUPER_ADMIN or EXECUTIVE_ASSISTANT can edit leave applications", 403)
+    app = LeaveApplicationService(db).edit(app_id, payload)
+    return _app_out(app)
 
 
 @router.post("/applications/{app_id}/cancel", response_model=LeaveApplicationOut)

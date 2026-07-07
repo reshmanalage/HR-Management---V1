@@ -17,3 +17,7 @@ class Shift(Base):
     grace_period_minutes: Mapped[int] = mapped_column(Integer, default=0)
     description: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Half-day cutoffs for LOP calculation.
+    # If null, auto-computed as the shift midpoint (start + duration/2).
+    half_day_late_cutoff: Mapped[str | None] = mapped_column(String(5))   # "HH:MM"
+    half_day_early_cutoff: Mapped[str | None] = mapped_column(String(5))  # "HH:MM"

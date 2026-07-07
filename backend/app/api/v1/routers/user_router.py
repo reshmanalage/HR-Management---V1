@@ -6,7 +6,12 @@ from app.controllers.user_controller import UserController
 from app.core.permissions import CREATE_USER, VIEW_USERS
 from app.database.session import get_db
 from app.models.user import User
+from pydantic import BaseModel
 from app.schemas.user_schema import CreateUserRequest, UserOut
+
+
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -27,3 +32,13 @@ def list_users(
     db: Session = Depends(get_db),
 ):
     return UserController(db).list_users()
+
+
+@router.post("/{user_id}/reset-password", response_model=UserOut)
+def admin_reset_password(
+    user_id: int,
+    payload: AdminResetPasswordRequest,
+    current_user: User = Depends(require_permission(CREATE_USER)),
+    db: Session = Depends(get_db),
+):
+    return UserController(db).reset_password(user_id, payload.new_password)

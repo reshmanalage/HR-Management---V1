@@ -20,6 +20,10 @@ class LeaveType(Base):
     accrual_threshold_days: Mapped[int | None] = mapped_column(Integer)
     accrual_per_month: Mapped[float | None] = mapped_column(Numeric(4, 2))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    advance_days: Mapped[int] = mapped_column(Integer, default=0, comment="Min days in advance required to apply (0 = no restriction)")
+    # LOP penalty flags
+    is_emergency: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_long_leave: Mapped[bool] = mapped_column(Boolean, default=False)
 
     balances: Mapped[list["LeaveBalance"]] = relationship("LeaveBalance", back_populates="leave_type")
     applications: Mapped[list["LeaveApplication"]] = relationship("LeaveApplication", back_populates="leave_type")

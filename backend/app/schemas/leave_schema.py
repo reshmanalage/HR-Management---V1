@@ -23,6 +23,9 @@ class LeaveTypeCreate(BaseModel):
     is_earned: bool = False
     accrual_threshold_days: int | None = None
     accrual_per_month: float | None = None
+    advance_days: int = 0
+    is_emergency: bool = False
+    is_long_leave: bool = False
 
 
 class LeaveTypeUpdate(BaseModel):
@@ -37,6 +40,9 @@ class LeaveTypeUpdate(BaseModel):
     accrual_threshold_days: int | None = None
     accrual_per_month: float | None = None
     is_active: bool | None = None
+    advance_days: int | None = None
+    is_emergency: bool | None = None
+    is_long_leave: bool | None = None
 
 
 class LeaveTypeOut(BaseModel):
@@ -52,6 +58,9 @@ class LeaveTypeOut(BaseModel):
     accrual_threshold_days: int | None
     accrual_per_month: float | None
     is_active: bool
+    advance_days: int
+    is_emergency: bool
+    is_long_leave: bool
 
     model_config = {"from_attributes": True}
 
@@ -165,6 +174,14 @@ class LeaveApplicationOut(BaseModel):
 
 class CancelLeaveRequest(BaseModel):
     cancel_reason: str | None = None
+
+
+class LeaveApplicationEdit(BaseModel):
+    from_date: dt.date | None = None
+    to_date: dt.date | None = None
+    reason: str | None = None
+    is_half_day: bool | None = None
+    half_day_period: HalfDayPeriod | None = None
 
 
 # ── PL Accrual ────────────────────────────────────────────────────────────────

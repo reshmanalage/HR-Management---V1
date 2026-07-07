@@ -84,7 +84,14 @@ function OverviewTab({ emp }) {
         <InfoRow label="Confirmation Date" value={emp.confirmation_date ? new Date(emp.confirmation_date).toLocaleDateString("en-IN") : null} />
         <InfoRow label="Branch" value={emp.branch} />
         <InfoRow label="Location" value={emp.location} />
-        <InfoRow label="Shift" value={emp.shift} />
+        <InfoRow
+          label="Shift"
+          value={
+            emp.shift_obj
+              ? `${emp.shift_obj.name}${emp.shift_obj.start_time ? ` (${emp.shift_obj.start_time}–${emp.shift_obj.end_time})` : ""}`
+              : emp.shift || null
+          }
+        />
         <InfoRow label="Cost Center" value={emp.cost_center} />
       </SectionCard>
     </div>

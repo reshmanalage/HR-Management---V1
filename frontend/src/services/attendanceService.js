@@ -1,5 +1,14 @@
 import api from "./api";
 
+export const mapBiometrics = (file) => {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post("/attendance/map-biometrics", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 60000,
+  }).then((r) => r.data);
+};
+
 export const importAttendance = (file) => {
   const form = new FormData();
   form.append("file", file);

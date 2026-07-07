@@ -33,7 +33,7 @@ def _count_working_days(from_date: date, to_date: date, holiday_dates: set[date]
     days = 0
     current = from_date
     while current <= to_date:
-        if current.weekday() < 5 and current not in holiday_dates:
+        if current.weekday() != 6 and current not in holiday_dates:
             days += 1
         current += timedelta(days=1)
     return float(days)
@@ -152,6 +152,28 @@ class LeaveBalanceService:
             self.db.refresh(b)
         return self.bal_repo.list_for_employee(payload.employee_id, payload.year)
 
+    def init_bulk(self, year: int) -> dict:
+        """Initialize leave balances for every active employee for the given year."""
+        from app.models.employee import Employee as Emp, EmployeeStatus
+        from sqlalchemy import select as sa_select
+
+        employees = list(self.db.scalars(sa_select(Emp).where(Emp.employee_status == EmployeeStatus.ACTIVE)))
+        leave_types = self.lt_repo.list_active()
+
+        initialized = 0
+        skipped = 0
+        for emp in employees:
+            for lt in leave_types:
+                if self.bal_repo.get(emp.id, lt.id, year):
+                    skipped += 1
+                    continue
+                days = 0.0 if lt.is_earned else float(lt.days_allowed)
+                self.db.add(LeaveBalance(employee_id=emp.id, leave_type_id=lt.id, year=year, allocated=days))
+                initialized += 1
+
+        self.db.commit()
+        return {"year": year, "initialized": initialized, "skipped": skipped, "employees": len(employees)}
+
     def get_balances(self, employee_id: int, year: int) -> list[LeaveBalance]:
         return self.bal_repo.list_for_employee(employee_id, year)
 
@@ -175,21 +197,67 @@ class LeaveApplicationService:
         return days
 
     def apply(self, employee_id: int, payload: LeaveApplicationCreate) -> LeaveApplication:
+        from datetime import date as date_cls
         lt = self.lt_repo.get_by_id(payload.leave_type_id)
         if not lt or not lt.is_active:
             raise AppError("Leave type not found or inactive", 404)
 
         days = self._get_days(payload.from_date, payload.to_date, payload.is_half_day)
         year = payload.from_date.year
+        today = date_cls.today()
 
-        # Balance check
-        bal = self.bal_repo.get(employee_id, payload.leave_type_id, year)
-        if not bal:
-            raise AppError("No leave balance found. Please contact HR to initialise your leave balance.", 400)
-        if bal.remaining < days:
-            raise AppError(
-                f"Insufficient balance. Available: {bal.remaining} days, Requested: {days} days", 400
+        # Advance notice checks (skipped for half-day)
+        if not payload.is_half_day:
+            if lt.is_paid:
+                required_advance = 3 if days <= 2 else 7
+                if (payload.from_date - today).days < required_advance:
+                    raise AppError(
+                        f"Paid leave must be applied at least {required_advance} days in advance "
+                        f"({'1–2 day' if days <= 2 else 'more than 2 day'} leave).", 400
+                    )
+            elif lt.advance_days > 0:
+                if (payload.from_date - today).days < lt.advance_days:
+                    raise AppError(
+                        f"This leave type requires applications at least {lt.advance_days} days in advance.", 400
+                    )
+
+        # Emergency leave: max N per calendar month (N from PayrollPolicy)
+        if lt.is_emergency:
+            from app.models.payroll_policy import PayrollPolicy
+            import calendar
+            policy = self.db.query(PayrollPolicy).filter_by(id=1).first()
+            max_per_month = policy.emergency_leave_per_month if policy else 2
+            month_start = payload.from_date.replace(day=1)
+            month_end = payload.from_date.replace(
+                day=calendar.monthrange(payload.from_date.year, payload.from_date.month)[1]
             )
+            existing_count = (
+                self.db.query(LeaveApplication)
+                .filter(
+                    LeaveApplication.employee_id == employee_id,
+                    LeaveApplication.from_date >= month_start,
+                    LeaveApplication.from_date <= month_end,
+                    LeaveApplication.status != LeaveStatus.CANCELLED,
+                    LeaveApplication.leave_type_id == payload.leave_type_id,
+                )
+                .count()
+            )
+            if existing_count >= max_per_month:
+                raise AppError(
+                    f"Maximum {max_per_month} emergency leave application(s) allowed per calendar month.", 400
+                )
+
+        # Balance check only for paid leave types; half-day applications are unrestricted
+        if lt.is_paid and not payload.is_half_day:
+            bal = self.bal_repo.get(employee_id, payload.leave_type_id, year)
+            if not bal:
+                raise AppError(
+                    "No paid leave balance found for this year. Please contact HR to initialise your leave balance.", 400
+                )
+            if bal.remaining < days:
+                raise AppError(
+                    f"Insufficient balance. Available: {bal.remaining} days, Requested: {days} days", 400
+                )
 
         app = LeaveApplication(
             employee_id=employee_id,
@@ -205,6 +273,26 @@ class LeaveApplicationService:
         self.app_repo.save(app)
         self.db.commit()
         return self.app_repo.get_by_id(app.id)
+
+    def edit(self, app_id: int, payload) -> LeaveApplication:
+        app = self.app_repo.get_by_id(app_id)
+        if not app:
+            raise AppError("Leave application not found", 404)
+        if app.status != LeaveStatus.PENDING:
+            raise AppError("Only pending applications can be edited", 400)
+        if payload.from_date is not None:
+            app.from_date = payload.from_date
+        if payload.to_date is not None:
+            app.to_date = payload.to_date
+        if payload.reason is not None:
+            app.reason = payload.reason
+        if payload.is_half_day is not None:
+            app.is_half_day = payload.is_half_day
+        if payload.half_day_period is not None:
+            app.half_day_period = payload.half_day_period
+        app.days = self._get_days(app.from_date, app.to_date, app.is_half_day)
+        self.db.commit()
+        return self.app_repo.get_by_id(app_id)
 
     def cancel(self, app_id: int, employee_id: int, cancel_reason: str | None) -> LeaveApplication:
         app = self.app_repo.get_by_id(app_id)

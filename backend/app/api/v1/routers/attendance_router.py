@@ -9,8 +9,24 @@ from app.models.user import User
 from app.core.exceptions import NotFoundError
 from app.schemas.attendance_schema import AttendanceImportResult, AttendanceRecordOut, AttendanceRecordUpdate
 from app.services.attendance_import_service import import_attendance
+from app.services.biometric_mapping_service import map_biometrics
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
+
+
+@router.post("/map-biometrics")
+async def map_biometric_codes(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Upload a biometric attendance Excel to match employee names and set
+    their biometric_code in the DB. Run this once before importing attendance.
+    """
+    data = await file.read()
+    result = map_biometrics(data, db)
+    return result
 
 
 @router.post("/import", response_model=AttendanceImportResult)

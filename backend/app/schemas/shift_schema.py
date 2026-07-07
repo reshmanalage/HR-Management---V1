@@ -10,6 +10,8 @@ class ShiftBase(BaseModel):
     grace_period_minutes: int = 0
     description: str | None = None
     is_active: bool = True
+    half_day_late_cutoff: str | None = None   # null = auto-compute as midpoint
+    half_day_early_cutoff: str | None = None  # null = auto-compute as midpoint
 
     @model_validator(mode="after")
     def validate_times(self) -> "ShiftBase":
@@ -32,6 +34,8 @@ class ShiftUpdate(BaseModel):
     grace_period_minutes: int | None = None
     description: str | None = None
     is_active: bool | None = None
+    half_day_late_cutoff: str | None = None
+    half_day_early_cutoff: str | None = None
 
 
 class ShiftOut(ShiftBase):

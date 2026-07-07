@@ -5,6 +5,7 @@ const EMPTY = {
   name: "", code: "", description: "", days_allowed: 0,
   is_paid: true, carry_forward: false, max_carry_forward_days: "",
   is_earned: false, accrual_threshold_days: "", accrual_per_month: "",
+  advance_days: 0, is_emergency: false, is_long_leave: false,
 };
 
 export default function LeaveTypesPage() {
@@ -31,6 +32,9 @@ export default function LeaveTypesPage() {
       is_earned: t.is_earned,
       accrual_threshold_days: t.accrual_threshold_days ?? "",
       accrual_per_month: t.accrual_per_month ?? "",
+      advance_days: t.advance_days ?? 0,
+      is_emergency: t.is_emergency ?? false,
+      is_long_leave: t.is_long_leave ?? false,
     });
     setError(""); setShowForm(true);
   }
@@ -45,6 +49,9 @@ export default function LeaveTypesPage() {
         max_carry_forward_days: form.max_carry_forward_days !== "" ? parseFloat(form.max_carry_forward_days) : null,
         accrual_threshold_days: form.accrual_threshold_days !== "" ? parseInt(form.accrual_threshold_days) : null,
         accrual_per_month: form.accrual_per_month !== "" ? parseFloat(form.accrual_per_month) : null,
+        advance_days: parseInt(form.advance_days) || 0,
+        is_emergency: form.is_emergency,
+        is_long_leave: form.is_long_leave,
       };
       if (editing) await updateLeaveType(editing.id, payload);
       else await createLeaveType(payload);
@@ -199,6 +206,29 @@ export default function LeaveTypesPage() {
                     className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
               )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Advance Notice Required (days)
+                  <span className="ml-1 font-normal text-gray-400">— 0 means no restriction. For paid leave, system enforces 3/7-day rule automatically.</span>
+                </label>
+                <input type="number" min="0" value={form.advance_days}
+                  onChange={(e) => setForm({ ...form, advance_days: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+
+              <div className="flex flex-wrap gap-6 pt-1">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={form.is_emergency}
+                    onChange={(e) => setForm({ ...form, is_emergency: e.target.checked })} />
+                  <span>Emergency Leave <span className="text-xs text-gray-400">(3rd+ use = 2× deduction)</span></span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={form.is_long_leave}
+                    onChange={(e) => setForm({ ...form, is_long_leave: e.target.checked })} />
+                  <span>Long Leave <span className="text-xs text-gray-400">(unapproved = 2× deduction)</span></span>
+                </label>
+              </div>
 
               {editing && (
                 <div className="flex items-center gap-2">

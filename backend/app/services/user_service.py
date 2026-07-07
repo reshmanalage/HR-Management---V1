@@ -45,8 +45,9 @@ class UserService:
             first_name=first_name,
             last_name=last_name,
             email=email,
-            employee_code=employee_code,
+            employee_code=employee_code or None,
             password_hash=hash_password(password) if password else None,
+            plain_password=password if password else None,
             is_active=True,
             is_email_verified=bool(password),  # skip email verify when password is set by admin
             created_by=creator_id,
@@ -82,6 +83,19 @@ class UserService:
             )
             send_welcome_email(to_email=user.email, set_password_link=set_password_link)
 
+        return user
+
+    def admin_reset_password(self, user_id: int, new_password: str) -> User:
+        from app.core.security import hash_password as _hash
+        user = self.user_repository.get_by_id(user_id)
+        if user is None:
+            raise UserNotFoundError()
+        user.password_hash = _hash(new_password)
+        user.plain_password = new_password
+        user.is_email_verified = True
+        self.user_repository.save(user)
+        self.db.commit()
+        self.db.refresh(user)
         return user
 
     def list_users(self) -> list[tuple[User, list[str]]]:

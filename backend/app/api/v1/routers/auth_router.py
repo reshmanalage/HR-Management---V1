@@ -49,7 +49,13 @@ def logout(payload: LogoutRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.models.user_module_access import MODULES
     roles = UserRepository(db).get_role_names(current_user.id)
+    is_super_admin = "SUPER_ADMIN" in roles
+    if is_super_admin:
+        modules = MODULES
+    else:
+        modules = [m.module for m in current_user.module_access]
     return UserOut(
         id=current_user.id,
         employee_code=current_user.employee_code,
@@ -61,6 +67,7 @@ def get_me(current_user: User = Depends(get_current_user), db: Session = Depends
         is_email_verified=current_user.is_email_verified,
         created_at=current_user.created_at,
         roles=roles,
+        modules=modules,
     )
 
 

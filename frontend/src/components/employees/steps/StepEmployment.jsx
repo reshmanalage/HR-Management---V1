@@ -6,6 +6,7 @@ import {
   createDepartment,
   createDesignation,
 } from "../../../services/employeeService";
+import { listShifts } from "../../../services/shiftService";
 
 const inputCls = "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
@@ -56,10 +57,16 @@ export default function StepEmployment({ data, onChange, employeeCode }) {
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [managers, setManagers] = useState([]);
+  const [shifts, setShifts] = useState([]);
 
   useEffect(() => {
-    Promise.all([listDepartments(), listDesignations(), listEmployeesDropdown()]).then(
-      ([d, des, m]) => { setDepartments(d); setDesignations(des); setManagers(m); }
+    Promise.all([listDepartments(), listDesignations(), listEmployeesDropdown(), listShifts()]).then(
+      ([d, des, m, s]) => {
+        setDepartments(d);
+        setDesignations(des);
+        setManagers(m);
+        setShifts(s.filter((sh) => sh.is_active && !sh.is_flexible));
+      }
     );
   }, []);
 
@@ -190,8 +197,30 @@ export default function StepEmployment({ data, onChange, employeeCode }) {
         <Field label="Location">
           <input className={inputCls} value={data.location ?? ""} onChange={set("location")} placeholder="e.g. 4th Floor" />
         </Field>
-        <Field label="Shift">
-          <input className={inputCls} value={data.shift ?? ""} onChange={set("shift")} placeholder="e.g. General Shift" />
+        <Field label="Shift" hint="Determines attendance thresholds and LOP calculation">
+          <select
+            className={inputCls}
+            value={data.shift_id ?? ""}
+            onChange={(e) => {
+              const id = e.target.value ? Number(e.target.value) : null;
+              const sh = shifts.find((s) => s.id === id);
+              onChange({ ...data, shift_id: id, shift: sh ? sh.name : null });
+            }}
+          >
+            <option value="">— None —</option>
+            {shifts.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+                {s.start_time && s.end_time ? ` (${s.start_time}–${s.end_time})` : ""}
+              </option>
+            ))}
+          </select>
+          {shifts.length === 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              No shifts configured yet —{" "}
+              <a href="/shifts" target="_blank" className="underline">add shifts first</a>.
+            </p>
+          )}
         </Field>
       </div>
 

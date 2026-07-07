@@ -25,6 +25,11 @@ from app.models.leave_approval import LeaveApproval, ApprovalAction
 from app.models.pl_accrual_log import PLAccrualLog
 from app.models.shift import Shift
 from app.models.attendance import AttendanceRecord
+from app.models.attendance_regularization import AttendanceRegularization, RegularizationType, RegularizationStatus
+from app.models.user_module_access import UserModuleAccess, MODULES
+from app.models.payroll_policy import PayrollPolicy
+from app.models.grace_period_usage import GracePeriodUsage
+from app.models.attendance_deduction import AttendanceDeduction, DeductionType
 
 __all__ = [
     "User",
@@ -64,4 +69,11 @@ __all__ = [
     "PLAccrualLog",
     "Shift",
     "AttendanceRecord",
+    "AttendanceRegularization",
+    "RegularizationType",
+    "RegularizationStatus",
+    "PayrollPolicy",
+    "GracePeriodUsage",
+    "AttendanceDeduction",
+    "DeductionType",
 ]

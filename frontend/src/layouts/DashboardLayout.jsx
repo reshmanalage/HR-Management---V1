@@ -8,6 +8,8 @@ export default function DashboardLayout() {
   const [loading, setLoading] = useState(true);
   const [verificationSent, setVerificationSent] = useState(false);
 
+  const hasModule = (mod) => !user || (user.modules ?? []).includes(mod);
+
   useEffect(() => {
     getCurrentUser()
       .then(setUser)
@@ -50,49 +52,55 @@ export default function DashboardLayout() {
               </div>
             )}
             <nav className="flex flex-col gap-1 text-sm">
-              <p className="text-xs uppercase tracking-wider text-gray-500 mt-2 mb-1 px-1">Employees</p>
-              <Link to="/employees" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                All Employees
-              </Link>
-              <Link to="/employees/bulk-upload" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Bulk Import
-              </Link>
+              {hasModule("employees") && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mt-2 mb-1 px-1">Employees</p>
+                  <Link to="/employees" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">All Employees</Link>
+                  <Link to="/employees/bulk-upload" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Bulk Import</Link>
+                </>
+              )}
 
-              <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Leave</p>
-              <Link to="/leave/my" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                My Leaves
-              </Link>
-              <Link to="/leave/approvals" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Approvals
-              </Link>
-              <Link to="/leave/types" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Leave Types
-              </Link>
-              <Link to="/leave/holidays" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Holidays
-              </Link>
+              {hasModule("leave") && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Leave</p>
+                  <Link to="/leave/my" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">My Leaves</Link>
+                  <Link to="/leave/balances" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Leave Balances</Link>
+                  <Link to="/leave/regularization" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Regularization</Link>
+                  <Link to="/leave/approvals" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Approvals</Link>
+                  <Link to="/leave/types" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Leave Types</Link>
+                  <Link to="/leave/holidays" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Holidays</Link>
+                </>
+              )}
 
-              <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Attendance</p>
-              <Link to="/shifts" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Shift Timings
-              </Link>
-              <Link to="/attendance" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Attendance
-              </Link>
-              <Link to="/attendance/upload" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Import Attendance
-              </Link>
+              {(hasModule("attendance") || hasModule("shifts")) && (
+                <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Attendance</p>
+              )}
+              {hasModule("shifts") && (
+                <Link to="/shifts" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Shift Timings</Link>
+              )}
+              {hasModule("attendance") && (
+                <>
+                  <Link to="/attendance" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Attendance</Link>
+                  <Link to="/attendance/upload" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Import Attendance</Link>
+                </>
+              )}
 
-              <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Admin</p>
-              <Link to="/users" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Users
-              </Link>
-              <Link to="/sessions" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Active Sessions
-              </Link>
-              <Link to="/login-history" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">
-                Login History
-              </Link>
+              {hasModule("admin") && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Admin</p>
+                  <Link to="/users" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Users</Link>
+                  <Link to="/sessions" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Active Sessions</Link>
+                  <Link to="/login-history" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Login History</Link>
+                </>
+              )}
+
+              {hasModule("attendance") && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mt-4 mb-1 px-1">Payroll</p>
+                  <Link to="/payroll/policy" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">Payroll Policy</Link>
+                  <Link to="/payroll/lop-report" className="text-gray-300 hover:text-white px-2 py-1 rounded hover:bg-gray-700">LOP Report</Link>
+                </>
+              )}
             </nav>
           </div>
           <div className="flex flex-col gap-2">

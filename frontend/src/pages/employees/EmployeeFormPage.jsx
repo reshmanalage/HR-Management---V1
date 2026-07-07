@@ -26,7 +26,7 @@ const EMPTY = {
   biometric_code: null, date_of_joining: null, confirmation_date: null,
   employment_type: null, employee_status: "active",
   department_id: null, designation_id: null, reporting_manager_id: null,
-  branch: null, location: null, grade: null, shift: null, cost_center: null,
+  branch: null, location: null, grade: null, shift: null, shift_id: null, cost_center: null,
   // step 3
   personal_email: null, company_email: null, mobile_number: null, alternate_mobile: null,
   addresses: [],
@@ -111,6 +111,7 @@ export default function EmployeeFormPage() {
         location: emp.location ?? null,
         grade: emp.grade ?? null,
         shift: emp.shift ?? null,
+        shift_id: emp.shift_id ?? null,
         cost_center: emp.cost_center ?? null,
 
         personal_email: emp.personal_email ?? null,
@@ -155,6 +156,7 @@ export default function EmployeeFormPage() {
       location: d.location || null,
       grade: d.grade || null,
       shift: d.shift || null,
+      shift_id: d.shift_id || null,
       cost_center: d.cost_center || null,
 
       personal_email: d.personal_email || null,
