@@ -124,6 +124,48 @@ def calculate_lop_single(
 
 
 # ──────────────────────────────────────────────
+# Delete cycle attendance data
+# ──────────────────────────────────────────────
+
+@router.delete("/attendance")
+def delete_cycle_attendance(
+    cycle_start: str = Query(..., description="Cycle start YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+    _=Depends(_require_hr_or_admin),
+):
+    """Delete all attendance records and deductions for a given payroll cycle."""
+    try:
+        cs = datetime.date.fromisoformat(cycle_start)
+    except ValueError:
+        raise HTTPException(400, "Invalid date format. Use YYYY-MM-DD")
+
+    ce = _cycle_end(cs)
+    cs_str = cs.strftime("%Y-%m-%d")
+    ce_str = ce.strftime("%Y-%m-%d")
+
+    ded_count = (
+        db.query(AttendanceDeduction)
+        .filter(AttendanceDeduction.payroll_cycle_start == cs_str)
+        .delete(synchronize_session=False)
+    )
+    att_count = (
+        db.query(AttendanceRecord)
+        .filter(
+            AttendanceRecord.date >= cs_str,
+            AttendanceRecord.date <= ce_str,
+        )
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {
+        "cycle_start": cs_str,
+        "cycle_end": ce_str,
+        "attendance_records_deleted": att_count,
+        "deductions_deleted": ded_count,
+    }
+
+
+# ──────────────────────────────────────────────
 # LOP Report
 # ──────────────────────────────────────────────
 

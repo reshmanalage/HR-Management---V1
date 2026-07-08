@@ -23,3 +23,6 @@ export const overrideDeduction = (data) =>
 
 export const revertDeductionOverride = (data) =>
   api.delete("/payroll/deduction/override", { data }).then((r) => r.data);
+
+export const deleteCycleAttendance = (cycle_start) =>
+  api.delete("/payroll/attendance", { params: { cycle_start } }).then((r) => r.data);
