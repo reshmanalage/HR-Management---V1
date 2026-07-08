@@ -5,10 +5,12 @@ from pydantic import BaseModel, EmailStr
 
 from app.models.employee import (
     BloodGroup,
+    EmployeeCategory,
     EmployeeStatus,
     EmploymentType,
     Gender,
     MaritalStatus,
+    PaymentMode,
 )
 from app.schemas.shift_schema import ShiftOut
 
@@ -154,6 +156,8 @@ class CreateEmployeeRequest(BaseModel):
     date_of_joining: Optional[date] = None
     confirmation_date: Optional[date] = None
     employment_type: Optional[EmploymentType] = None
+    employee_category: Optional[EmployeeCategory] = None
+    payment_mode: Optional[PaymentMode] = None
     employee_status: EmployeeStatus = EmployeeStatus.ACTIVE
     department_id: Optional[int] = None
     designation_id: Optional[int] = None
@@ -199,6 +203,8 @@ class UpdateEmployeeRequest(BaseModel):
     date_of_joining: Optional[date] = None
     confirmation_date: Optional[date] = None
     employment_type: Optional[EmploymentType] = None
+    employee_category: Optional[EmployeeCategory] = None
+    payment_mode: Optional[PaymentMode] = None
     employee_status: Optional[EmployeeStatus] = None
     department_id: Optional[int] = None
     designation_id: Optional[int] = None
@@ -246,6 +252,8 @@ class EmployeeOut(BaseModel):
     date_of_joining: Optional[date] = None
     confirmation_date: Optional[date] = None
     employment_type: Optional[EmploymentType] = None
+    employee_category: Optional[EmployeeCategory] = None
+    payment_mode: Optional[PaymentMode] = None
     employee_status: EmployeeStatus = EmployeeStatus.ACTIVE
     department: Optional[DepartmentOut] = None
     designation: Optional[DesignationOut] = None
@@ -280,6 +288,8 @@ class EmployeeListItem(BaseModel):
     department: Optional[DepartmentOut] = None
     designation: Optional[DesignationOut] = None
     employee_status: EmployeeStatus = EmployeeStatus.ACTIVE
+    employment_type: Optional[EmploymentType] = None
+    employee_category: Optional[EmployeeCategory] = None
     date_of_joining: Optional[date] = None
     mobile_number: Optional[str] = None
     company_email: Optional[str] = None

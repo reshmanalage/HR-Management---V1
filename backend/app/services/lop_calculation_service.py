@@ -1,7 +1,7 @@
 """
 LOP (Leave-Without-Pay) & Penalty Calculation Service.
 
-Payroll cycle: 20th of current month → 21st of following month.
+Payroll cycle: 21st of current month → 20th of following month.
 All deductions are stored as AttendanceDeduction rows.
 """
 import datetime

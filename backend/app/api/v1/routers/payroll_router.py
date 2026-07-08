@@ -89,7 +89,7 @@ def update_policy(
 def calculate_lop(
     payload: LOPCalculateRequest,
     db: Session = Depends(get_db),
-    _=Depends(_require_super_admin),
+    _=Depends(_require_hr_or_admin),
 ):
     """Run LOP calculation for all active employees for the given cycle."""
     results = calculate_lop_bulk(db, payload.cycle_start)
@@ -108,7 +108,7 @@ def calculate_lop_single(
     employee_id: int,
     payload: LOPCalculateRequest,
     db: Session = Depends(get_db),
-    _=Depends(_require_super_admin),
+    _=Depends(_require_hr_or_admin),
 ):
     """Recalculate LOP for a single employee (useful for corrections)."""
     emp = db.query(Employee).filter_by(id=employee_id).first()
@@ -312,25 +312,16 @@ def attendance_report(
     all_shifts_by_id: dict[int, Shift] = {s.id: s for s in db.query(Shift).filter_by(is_active=True).all()}
     all_shifts_by_name: dict[str, Shift] = {s.name: s for s in all_shifts_by_id.values()}
 
-    # Employees with attendance records this cycle
-    emp_ids_with_att = {
-        r[0]
-        for r in db.query(AttendanceRecord.employee_id).filter(
-            AttendanceRecord.date >= cycle_start_str,
-            AttendanceRecord.date <= cycle_end_str,
-            AttendanceRecord.employee_id.isnot(None),
-        ).distinct().all()
+    # All active employees (not just those who punched in — fully absent employees must appear too)
+    employees: dict[int, Employee] = {
+        e.id: e
+        for e in db.query(Employee).filter(
+            Employee.employee_status.in_(["active", "probation", "notice_period"]),
+            Employee.is_active == True,
+        ).all()
     }
 
-    emp_ids_with_ded = {
-        r[0]
-        for r in db.query(AttendanceDeduction.employee_id).filter_by(
-            payroll_cycle_start=cycle_start_str
-        ).distinct().all()
-    }
-
-    all_emp_ids = emp_ids_with_att | emp_ids_with_ded
-    if not all_emp_ids:
+    if not employees:
         return AttendanceReportOut(
             cycle_start=cycle_start_str,
             cycle_end=cycle_end_str,
@@ -338,10 +329,7 @@ def attendance_report(
             employees=[],
         )
 
-    employees: dict[int, Employee] = {
-        e.id: e
-        for e in db.query(Employee).filter(Employee.id.in_(all_emp_ids)).all()
-    }
+    all_emp_ids = set(employees.keys())
 
     # Attendance records keyed by (emp_id, date)
     att_map: dict[tuple[int, str], AttendanceRecord] = {}

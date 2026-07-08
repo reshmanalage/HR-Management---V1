@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
@@ -14,6 +15,7 @@ from app.core.permissions import (
     MANAGE_DESIGNATIONS,
 )
 from app.database.session import get_db
+from app.models.employee import Employee, EmployeeCategory, EmployeeStatus, EmploymentType, PaymentMode
 from app.models.user import User
 from app.schemas.employee_schema import (
     CreateDepartmentRequest,
@@ -105,6 +107,37 @@ def list_employees(
     db: Session = Depends(get_db),
 ):
     return EmployeeService(db).list_employees()
+
+
+@router.post("/employees/promote-probation")
+def promote_probation_employees(
+    current_user: User = Depends(require_permission(EDIT_EMPLOYEE)),
+    db: Session = Depends(get_db),
+):
+    """Auto-promote eligible probation employees to permanent.
+
+    Criteria: employment_type=probation, category=office_staff|worker,
+    payment_mode=bank, joining date >= 3 months ago, still active.
+    Sets employment_type=permanent and employee_status=active.
+    """
+    cutoff = datetime.date.today() - datetime.timedelta(days=90)
+    candidates = (
+        db.query(Employee)
+        .filter(
+            Employee.employment_type == EmploymentType.PROBATION,
+            Employee.employee_category.in_([EmployeeCategory.OFFICE_STAFF, EmployeeCategory.WORKER]),
+            Employee.payment_mode == PaymentMode.BANK,
+            Employee.date_of_joining <= cutoff,
+            Employee.is_active == True,
+            Employee.employee_status != EmployeeStatus.TERMINATED,
+        )
+        .all()
+    )
+    for emp in candidates:
+        emp.employment_type = EmploymentType.PERMANENT
+        emp.employee_status = EmployeeStatus.ACTIVE
+    db.commit()
+    return {"promoted": len(candidates), "promoted_ids": [e.id for e in candidates]}
 
 
 @router.get("/employees/dropdown", response_model=list[EmployeeListItem])

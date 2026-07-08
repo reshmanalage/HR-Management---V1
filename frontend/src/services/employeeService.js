@@ -24,6 +24,11 @@ export async function deactivateEmployee(id) {
   await api.delete(`/employees/${id}`);
 }
 
+export async function promoteProbationEmployees() {
+  const { data } = await api.post("/employees/promote-probation");
+  return data;
+}
+
 export async function listEmployeesDropdown() {
   const { data } = await api.get("/employees/dropdown");
   return data;

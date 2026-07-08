@@ -119,6 +119,27 @@ export default function StepEmployment({ data, onChange, employeeCode }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
+        <Field label="Employee Category">
+          <select className={inputCls} value={data.employee_category ?? ""} onChange={set("employee_category")}>
+            <option value="">— Select —</option>
+            <option value="office_staff">Office Staff</option>
+            <option value="worker">Worker</option>
+            <option value="management">Management</option>
+            <option value="security">Security</option>
+            <option value="housekeeping">Housekeeping</option>
+          </select>
+        </Field>
+        <Field label="Payment Mode">
+          <select className={inputCls} value={data.payment_mode ?? ""} onChange={set("payment_mode")}>
+            <option value="">— Select —</option>
+            <option value="cash">Cash</option>
+            <option value="consultant">Consultant</option>
+            <option value="bank">Bank</option>
+          </select>
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <Field label="Employee Status">
           <select className={inputCls} value={data.employee_status ?? "active"} onChange={set("employee_status")}>
             <option value="active">Active</option>

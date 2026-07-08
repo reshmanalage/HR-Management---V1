@@ -42,6 +42,20 @@ class EmploymentType(str, enum.Enum):
     CONSULTANT = "consultant"
 
 
+class EmployeeCategory(str, enum.Enum):
+    OFFICE_STAFF = "office_staff"
+    WORKER = "worker"
+    MANAGEMENT = "management"
+    SECURITY = "security"
+    HOUSEKEEPING = "housekeeping"
+
+
+class PaymentMode(str, enum.Enum):
+    CASH = "cash"
+    CONSULTANT = "consultant"
+    BANK = "bank"
+
+
 class EmployeeStatus(str, enum.Enum):
     ACTIVE = "active"
     PROBATION = "probation"
@@ -85,6 +99,8 @@ class Employee(Base):
     resignation_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     relieving_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     employment_type: Mapped[EmploymentType | None] = mapped_column(Enum(EmploymentType), nullable=True)
+    employee_category: Mapped[EmployeeCategory | None] = mapped_column(Enum(EmployeeCategory), nullable=True)
+    payment_mode: Mapped[PaymentMode | None] = mapped_column(Enum(PaymentMode), nullable=True)
     employee_status: Mapped[EmployeeStatus] = mapped_column(
         Enum(EmployeeStatus), nullable=False, default=EmployeeStatus.ACTIVE
     )

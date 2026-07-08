@@ -27,10 +27,14 @@ from sqlalchemy.orm import Session
 
 from app.models.department import Department
 from app.models.designation import Designation
-from app.models.employee import Employee, EmployeeStatus, EmploymentType, BloodGroup, MaritalStatus
+from app.models.employee import (
+    Employee, EmployeeCategory, EmployeeStatus, EmploymentType,
+    BloodGroup, MaritalStatus, PaymentMode,
+)
 from app.models.employee_address import EmployeeAddress
 from app.models.employee_bank_account import EmployeeBankAccount
 from app.models.employee_statutory import EmployeeStatutory
+from app.models.shift import Shift
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +42,7 @@ log = logging.getLogger(__name__)
 # (field_key, header_label, sample_value)
 
 COLUMNS = [
-    # ── Core (keep positions 1-17 identical to previous version) ──────────────
+    # ── Core (1-17) ────────────────────────────────────────────────────────────
     ("employee_code",         "Employee Code",          "EMP0001 (auto if blank)"),
     ("first_name",            "First Name *",           "John"),
     ("middle_name",           "Middle Name",            ""),
@@ -56,35 +60,42 @@ COLUMNS = [
     ("branch",                "Branch",                 "Mumbai"),
     ("location",              "Location",               "WFH / Office"),
     ("grade",                 "Grade",                  "L2"),
-    # ── Personal (new) ─────────────────────────────────────────────────────────
+    # ── Personal (18-24) ───────────────────────────────────────────────────────
     ("biometric_code",        "Biometric Code",         "73"),
     ("blood_group",           "Blood Group",            "A+ / B+ / O+ / AB+ / A- / B- / O- / AB-"),
     ("marital_status",        "Marital Status",         "single / married / divorced / widowed"),
     ("nationality",           "Nationality",            "Indian"),
+    ("religion",              "Religion",               "Hindu / Muslim / Christian / Sikh / Other"),
     ("alternate_mobile",      "Alternate Mobile",       "9876543211"),
-    # ── Employment (new) ───────────────────────────────────────────────────────
+    ("display_name",          "Display Name",           "John D."),
+    # ── Employment (25-34) ─────────────────────────────────────────────────────
     ("confirmation_date",     "Confirmation Date",      "2024-07-01"),
     ("cost_center",           "Cost Center",            "CC-001"),
     ("reporting_manager_code","Reporting Manager Code", "EMP0010"),
-    # ── Address ────────────────────────────────────────────────────────────────
+    ("employee_category",     "Employee Category",      "office_staff / worker / management / security / housekeeping"),
+    ("payment_mode",          "Payment Mode",           "cash / bank / consultant"),
+    ("shift",                 "Shift Name",             "General"),
+    ("resignation_date",      "Resignation Date",       "2025-01-01"),
+    ("relieving_date",        "Relieving Date",         "2025-01-31"),
+    # ── Address (35-38) ────────────────────────────────────────────────────────
     ("address_line_1",        "Address Line 1",         "123 Main Street"),
     ("city",                  "City",                   "Mumbai"),
     ("state",                 "State",                  "Maharashtra"),
     ("pincode",               "Pincode",                "400001"),
-    # ── Bank ───────────────────────────────────────────────────────────────────
+    # ── Bank (39-43) ───────────────────────────────────────────────────────────
     ("bank_name",             "Bank Name",              "HDFC Bank"),
     ("account_number",        "Account Number",         "12345678901234"),
     ("ifsc_code",             "IFSC Code",              "HDFC0001234"),
     ("account_holder_name",   "Account Holder Name",    "John Doe"),
     ("account_type",          "Account Type",           "savings / current / salary"),
-    # ── Statutory ──────────────────────────────────────────────────────────────
+    # ── Statutory (44-47) ──────────────────────────────────────────────────────
     ("pan_number",            "PAN Number",             "ABCDE1234F"),
     ("aadhaar_number",        "Aadhaar Number",         "123456789012"),
     ("uan_number",            "UAN Number",             "100123456789"),
     ("esic_ip_number",        "ESIC IP Number",         "1234567890"),
 ]
 
-# Column index constants (1-based, matching COLUMNS list order)
+# Column index constants (1-based)
 C_EMP_CODE          = 1
 C_FIRST_NAME        = 2
 C_MIDDLE_NAME       = 3
@@ -106,34 +117,41 @@ C_BIOMETRIC         = 18
 C_BLOOD_GROUP       = 19
 C_MARITAL_STATUS    = 20
 C_NATIONALITY       = 21
-C_ALT_MOBILE        = 22
-C_CONFIRM_DATE      = 23
-C_COST_CENTER       = 24
-C_MANAGER_CODE      = 25
-C_ADDRESS_LINE1     = 26
-C_CITY              = 27
-C_STATE             = 28
-C_PINCODE           = 29
-C_BANK_NAME         = 30
-C_ACCOUNT_NUMBER    = 31
-C_IFSC              = 32
-C_ACCOUNT_HOLDER    = 33
-C_ACCOUNT_TYPE      = 34
-C_PAN               = 35
-C_AADHAAR           = 36
-C_UAN               = 37
-C_ESIC              = 38
+C_RELIGION          = 22
+C_ALT_MOBILE        = 23
+C_DISPLAY_NAME      = 24
+C_CONFIRM_DATE      = 25
+C_COST_CENTER       = 26
+C_MANAGER_CODE      = 27
+C_EMP_CATEGORY      = 28
+C_PAYMENT_MODE      = 29
+C_SHIFT             = 30
+C_RESIGNATION_DATE  = 31
+C_RELIEVING_DATE    = 32
+C_ADDRESS_LINE1     = 33
+C_CITY              = 34
+C_STATE             = 35
+C_PINCODE           = 36
+C_BANK_NAME         = 37
+C_ACCOUNT_NUMBER    = 38
+C_IFSC              = 39
+C_ACCOUNT_HOLDER    = 40
+C_ACCOUNT_TYPE      = 41
+C_PAN               = 42
+C_AADHAAR           = 43
+C_UAN               = 44
+C_ESIC              = 45
 
 NCOLS = len(COLUMNS)
 
-# Section header rows in the template for readability
+# Section header rows in the template
 SECTION_ROWS = {
     1:  ("Core Details",       "4F46E5"),  # indigo
     18: ("Personal Details",   "0891B2"),  # cyan
-    23: ("Employment Details", "059669"),  # emerald
-    26: ("Address",            "D97706"),  # amber
-    30: ("Bank Details",       "7C3AED"),  # violet
-    35: ("Statutory Details",  "DC2626"),  # red
+    25: ("Employment Details", "059669"),  # emerald
+    33: ("Address",            "D97706"),  # amber
+    37: ("Bank Details",       "7C3AED"),  # violet
+    42: ("Statutory Details",  "DC2626"),  # red
 }
 
 HEADER_FILL    = PatternFill("solid", fgColor="4F46E5")
@@ -144,20 +162,20 @@ ERROR_HDR_FILL = PatternFill("solid", fgColor="DC2626")
 
 SECTION_COL_FILLS = {
     range(1, 18):  PatternFill("solid", fgColor="EEF2FF"),  # indigo tint
-    range(18, 23): PatternFill("solid", fgColor="E0F9FF"),  # cyan tint
-    range(23, 26): PatternFill("solid", fgColor="ECFDF5"),  # emerald tint
-    range(26, 30): PatternFill("solid", fgColor="FFFBEB"),  # amber tint
-    range(30, 35): PatternFill("solid", fgColor="F5F3FF"),  # violet tint
-    range(35, 39): PatternFill("solid", fgColor="FFF1F2"),  # red tint
+    range(18, 25): PatternFill("solid", fgColor="E0F9FF"),  # cyan tint
+    range(25, 33): PatternFill("solid", fgColor="ECFDF5"),  # emerald tint
+    range(33, 37): PatternFill("solid", fgColor="FFFBEB"),  # amber tint
+    range(37, 42): PatternFill("solid", fgColor="F5F3FF"),  # violet tint
+    range(42, 46): PatternFill("solid", fgColor="FFF1F2"),  # red tint
 }
 
 COL_WIDTHS = [
     18, 15, 15, 15, 10, 14, 25, 25, 14, 20, 22, 20, 16, 14, 14, 14, 10,  # 1-17
-    14, 12, 14, 14, 16,                                                    # 18-22
-    14, 14, 22,                                                            # 23-25
-    30, 16, 16, 10,                                                        # 26-29
-    18, 18, 14, 22, 12,                                                    # 30-34
-    14, 14, 14, 14,                                                        # 35-38
+    14, 12, 14, 14, 20, 16, 16,                                            # 18-24
+    14, 14, 22, 30, 20, 16, 14, 14,                                        # 25-32
+    30, 16, 16, 10,                                                         # 33-36
+    18, 18, 14, 22, 12,                                                     # 37-41
+    14, 14, 14, 14,                                                         # 42-45
 ]
 
 _GENDER_MAP = {"male": "male", "m": "male", "female": "female", "f": "female", "other": "other", "o": "other"}
@@ -173,6 +191,20 @@ _MARITAL_MAP = {
 }
 
 _ACCOUNT_TYPE_MAP = {"savings": "savings", "current": "current", "salary": "salary"}
+
+_EMP_CATEGORY_MAP = {
+    "office_staff": "office_staff", "office staff": "office_staff",
+    "worker": "worker",
+    "management": "management",
+    "security": "security",
+    "housekeeping": "housekeeping",
+}
+
+_PAYMENT_MODE_MAP = {
+    "cash": "cash",
+    "bank": "bank",
+    "consultant": "consultant",
+}
 
 
 # ── template ──────────────────────────────────────────────────────────────────
@@ -338,6 +370,11 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
         row[1].lower(): row[0]
         for row in db.execute(select(Designation.id, Designation.title))
     }
+    # Shift name → id lookup
+    shift_map: dict[str, int] = {
+        row[1].lower(): row[0]
+        for row in db.execute(select(Shift.id, Shift.name))
+    }
     # Existing employee code → id (for reporting manager lookup)
     emp_code_to_id: dict[str, int] = {
         row[0]: row[1]
@@ -347,8 +384,8 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
     max_emp_id: int = db.scalar(select(func.max(Employee.id))) or 0
 
     log.info(
-        "bulk_import: lookups ready — codes=%d emails=%d depts=%d desigs=%d",
-        len(existing_codes), len(existing_emails), len(dept_map), len(desig_map),
+        "bulk_import: lookups ready — codes=%d emails=%d depts=%d desigs=%d shifts=%d",
+        len(existing_codes), len(existing_emails), len(dept_map), len(desig_map), len(shift_map),
     )
 
     # ── Step 2: parse Excel ───────────────────────────────────────────────────
@@ -366,7 +403,7 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                 break
         else:
             consecutive_empty = 0
-            # Skip section/header rows: if column 2 (first_name) equals the label text, skip
+            # Skip section/header rows
             if _s(raw, C_FIRST_NAME).lower() in ("first name *", "first name", "sample"):
                 continue
             all_rows.append((row_idx, raw))
@@ -469,8 +506,10 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
             marital_status = _MARITAL_MAP.get(_s(raw, C_MARITAL_STATUS).strip().lower())
 
             # Dates
-            dob            = _parse_date(raw[C_DOB - 1]          if len(raw) >= C_DOB          else None)
-            confirm_date   = _parse_date(raw[C_CONFIRM_DATE - 1] if len(raw) >= C_CONFIRM_DATE else None)
+            dob             = _parse_date(raw[C_DOB - 1]             if len(raw) >= C_DOB             else None)
+            confirm_date    = _parse_date(raw[C_CONFIRM_DATE - 1]    if len(raw) >= C_CONFIRM_DATE    else None)
+            resignation_date = _parse_date(raw[C_RESIGNATION_DATE - 1] if len(raw) >= C_RESIGNATION_DATE else None)
+            relieving_date  = _parse_date(raw[C_RELIEVING_DATE - 1]  if len(raw) >= C_RELIEVING_DATE  else None)
 
             # Employment type
             et_raw = _s(raw, C_EMP_TYPE).strip().lower().replace(" ", "_")
@@ -486,6 +525,19 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
             except ValueError:
                 employee_status = EmployeeStatus.ACTIVE.value
 
+            # Employee category
+            ec_raw = _s(raw, C_EMP_CATEGORY).strip().lower()
+            employee_category: str | None = _EMP_CATEGORY_MAP.get(ec_raw)
+
+            # Payment mode
+            pm_raw = _s(raw, C_PAYMENT_MODE).strip().lower()
+            payment_mode: str | None = _PAYMENT_MODE_MAP.get(pm_raw)
+
+            # Shift (lookup by name)
+            shift_name_raw = _s(raw, C_SHIFT).strip()
+            shift_id: int | None = shift_map.get(shift_name_raw.lower()) if shift_name_raw else None
+            shift_name: str | None = shift_name_raw or None
+
             # Reporting manager (lookup existing employees; new batch mates resolved after INSERT)
             manager_code = _s(raw, C_MANAGER_CODE) or None
             reporting_manager_id = emp_code_to_id.get(manager_code) if manager_code else None
@@ -496,11 +548,13 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                 first_name=first_name,
                 middle_name=_s(raw, C_MIDDLE_NAME) or None,
                 last_name=last_name or "",
+                display_name=_s(raw, C_DISPLAY_NAME) or None,
                 gender=gender,
                 date_of_birth=dob,
                 blood_group=blood_group,
                 marital_status=marital_status,
                 nationality=_s(raw, C_NATIONALITY) or None,
+                religion=_s(raw, C_RELIGION) or None,
                 personal_email=_s(raw, C_PERSONAL_EMAIL) or None,
                 company_email=company_email,
                 mobile_number=_mobile(_s(raw, C_MOBILE)),
@@ -508,13 +562,19 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                 department_id=dept_map.get(_s(raw, C_DEPARTMENT).lower()) if _s(raw, C_DEPARTMENT) else None,
                 designation_id=desig_map.get(_s(raw, C_DESIGNATION).lower()) if _s(raw, C_DESIGNATION) else None,
                 employment_type=employment_type,
+                employee_category=employee_category,
+                payment_mode=payment_mode,
                 employee_status=employee_status,
                 date_of_joining=doj,
                 confirmation_date=confirm_date,
+                resignation_date=resignation_date,
+                relieving_date=relieving_date,
                 branch=_s(raw, C_BRANCH) or None,
                 location=_s(raw, C_LOCATION) or None,
                 grade=_s(raw, C_GRADE) or None,
                 cost_center=_s(raw, C_COST_CENTER) or None,
+                shift=shift_name,
+                shift_id=shift_id,
                 reporting_manager_id=reporting_manager_id,
                 created_by=created_by,
                 is_active=True,
@@ -537,7 +597,7 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
     try:
         log.info("bulk_import: executing bulk INSERT for %d employees", len(valid_payloads))
         db.execute(sa_insert(Employee), [p for _, p, _, _, _ in valid_payloads])
-        db.flush()  # flush to get IDs without committing yet
+        db.flush()
         log.info("bulk_import: bulk INSERT flushed")
 
         # Fetch newly created IDs by employee code

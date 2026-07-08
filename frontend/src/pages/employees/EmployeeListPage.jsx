@@ -1,10 +1,44 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { listEmployees, deactivateEmployee } from "../../services/employeeService";
+import { listEmployees, deactivateEmployee, promoteProbationEmployees } from "../../services/employeeService";
 
 const AVATAR_COLORS = ["bg-indigo-500","bg-violet-500","bg-pink-500","bg-rose-500","bg-orange-500","bg-amber-500","bg-teal-500","bg-cyan-500","bg-sky-500","bg-emerald-500"];
 function avatarColor(name) { let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))&0xff; return AVATAR_COLORS[h % AVATAR_COLORS.length]; }
 function initials(f,l) { return ((f?.[0]??"")+( l?.[0]??"")).toUpperCase() || "?"; }
+
+const EMP_TYPE_LABELS = {
+  permanent:   "Permanent",
+  probation:   "Probation",
+  contract:    "Contract",
+  intern:      "Intern",
+  part_time:   "Part-Time",
+  consultant:  "Consultant",
+};
+
+const EMP_TYPE_STYLES = {
+  permanent:  "bg-green-100 text-green-700",
+  probation:  "bg-yellow-100 text-yellow-700",
+  contract:   "bg-blue-100 text-blue-700",
+  intern:     "bg-purple-100 text-purple-700",
+  part_time:  "bg-gray-100 text-gray-600",
+  consultant: "bg-orange-100 text-orange-700",
+};
+
+const EMP_CATEGORY_LABELS = {
+  office_staff: "Office Staff",
+  worker:       "Worker",
+  management:   "Management",
+  security:     "Security",
+  housekeeping: "Housekeeping",
+};
+
+const EMP_CATEGORY_STYLES = {
+  office_staff: "bg-indigo-100 text-indigo-700",
+  worker:       "bg-cyan-100 text-cyan-700",
+  management:   "bg-violet-100 text-violet-700",
+  security:     "bg-red-100 text-red-700",
+  housekeeping: "bg-teal-100 text-teal-700",
+};
 
 const STATUS_DOT = {
   active:        "bg-green-500",
@@ -39,6 +73,8 @@ export default function EmployeeListPage() {
 
   async function load() {
     try {
+      // Run promotion check silently on every page load
+      promoteProbationEmployees().catch(() => {});
       const data = await listEmployees();
       setEmployees(data);
     } finally {
@@ -139,6 +175,8 @@ export default function EmployeeListPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Designation</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Emp Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Joined</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -172,6 +210,20 @@ export default function EmployeeListPage() {
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">{emp.employee_code}</td>
                     <td className="px-4 py-3 text-gray-600">{emp.department?.name ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{emp.designation?.title ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {emp.employee_category ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${EMP_CATEGORY_STYLES[emp.employee_category] ?? "bg-gray-100 text-gray-600"}`}>
+                          {EMP_CATEGORY_LABELS[emp.employee_category] ?? emp.employee_category}
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {emp.employment_type ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${EMP_TYPE_STYLES[emp.employment_type] ?? "bg-gray-100 text-gray-600"}`}>
+                          {EMP_TYPE_LABELS[emp.employment_type] ?? emp.employment_type}
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{emp.mobile_number ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {emp.date_of_joining ? new Date(emp.date_of_joining).toLocaleDateString("en-IN") : "—"}
