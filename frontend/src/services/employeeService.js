@@ -61,6 +61,20 @@ export async function deleteDocument(employeeId, documentId) {
   await api.delete(`/employees/${employeeId}/documents/${documentId}`);
 }
 
+export async function listSalaryRevisions(employeeId) {
+  const { data } = await api.get(`/employees/${employeeId}/salary-revisions`);
+  return data;
+}
+
+export async function addSalaryRevision(employeeId, payload) {
+  const { data } = await api.post(`/employees/${employeeId}/salary-revisions`, payload);
+  return data;
+}
+
+export async function deleteSalaryRevision(employeeId, revisionId) {
+  await api.delete(`/employees/${employeeId}/salary-revisions/${revisionId}`);
+}
+
 export async function listDepartments() {
   const { data } = await api.get("/departments");
   return data;

@@ -245,9 +245,25 @@ export default function StepEmployment({ data, onChange, employeeCode }) {
         </Field>
       </div>
 
-      <Field label="Cost Center">
-        <input className={inputCls} value={data.cost_center ?? ""} onChange={set("cost_center")} placeholder="e.g. CC-HR-001" />
-      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Cost Center">
+          <input className={inputCls} value={data.cost_center ?? ""} onChange={set("cost_center")} placeholder="e.g. CC-HR-001" />
+        </Field>
+        <Field label="CTC (Annual)" hint="Cost to Company in INR — used for reference only">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium select-none">₹</span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              className={`${inputCls} pl-7`}
+              value={data.ctc ?? ""}
+              onChange={(e) => onChange({ ...data, ctc: e.target.value ? Number(e.target.value) : null })}
+              placeholder="e.g. 600000"
+            />
+          </div>
+        </Field>
+      </div>
     </div>
   );
 }

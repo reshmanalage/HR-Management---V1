@@ -34,6 +34,8 @@ from app.schemas.employee_schema import (
 from app.services.employee_service import DepartmentService, DesignationService, EmployeeService
 from app.services.google_drive_service import upload_photo
 from app.services.bulk_employee_service import generate_template, process_upload
+from app.services.salary_service import SalaryService
+from app.schemas.salary_schema import SalaryRevisionIn, SalaryRevisionOut
 
 router = APIRouter(tags=["employees"])
 
@@ -241,6 +243,37 @@ def delete_document(
     db: Session = Depends(get_db),
 ):
     EmployeeService(db).delete_document(employee_id, document_id)
+
+
+# ── Salary revisions ─────────────────────────────────────────────────────────
+
+@router.get("/employees/{employee_id}/salary-revisions", response_model=list[SalaryRevisionOut])
+def list_salary_revisions(
+    employee_id: int,
+    current_user: User = Depends(require_permission(VIEW_EMPLOYEES)),
+    db: Session = Depends(get_db),
+):
+    return SalaryService(db).list_revisions(employee_id)
+
+
+@router.post("/employees/{employee_id}/salary-revisions", response_model=SalaryRevisionOut, status_code=201)
+def add_salary_revision(
+    employee_id: int,
+    payload: SalaryRevisionIn,
+    current_user: User = Depends(require_permission(EDIT_EMPLOYEE)),
+    db: Session = Depends(get_db),
+):
+    return SalaryService(db).add_revision(employee_id, payload, created_by=current_user.id)
+
+
+@router.delete("/employees/{employee_id}/salary-revisions/{revision_id}", status_code=204)
+def delete_salary_revision(
+    employee_id: int,
+    revision_id: int,
+    current_user: User = Depends(require_permission(EDIT_EMPLOYEE)),
+    db: Session = Depends(get_db),
+):
+    SalaryService(db).delete_revision(employee_id, revision_id)
 
 
 # ── Departments ───────────────────────────────────────────────────────────────

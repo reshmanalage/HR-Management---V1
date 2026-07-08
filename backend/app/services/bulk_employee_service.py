@@ -33,6 +33,7 @@ from app.models.employee import (
 )
 from app.models.employee_address import EmployeeAddress
 from app.models.employee_bank_account import EmployeeBankAccount
+from app.models.employee_salary_revision import EmployeeSalaryRevision, RevisionType
 from app.models.employee_statutory import EmployeeStatutory
 from app.models.shift import Shift
 
@@ -77,18 +78,19 @@ COLUMNS = [
     ("shift",                 "Shift Name",             "General"),
     ("resignation_date",      "Resignation Date",       "2025-01-01"),
     ("relieving_date",        "Relieving Date",         "2025-01-31"),
-    # ── Address (35-38) ────────────────────────────────────────────────────────
+    ("ctc",                   "CTC (Annual)",           "600000"),
+    # ── Address (34-37) ────────────────────────────────────────────────────────
     ("address_line_1",        "Address Line 1",         "123 Main Street"),
     ("city",                  "City",                   "Mumbai"),
     ("state",                 "State",                  "Maharashtra"),
     ("pincode",               "Pincode",                "400001"),
-    # ── Bank (39-43) ───────────────────────────────────────────────────────────
+    # ── Bank (38-42) ───────────────────────────────────────────────────────────
     ("bank_name",             "Bank Name",              "HDFC Bank"),
     ("account_number",        "Account Number",         "12345678901234"),
     ("ifsc_code",             "IFSC Code",              "HDFC0001234"),
     ("account_holder_name",   "Account Holder Name",    "John Doe"),
     ("account_type",          "Account Type",           "savings / current / salary"),
-    # ── Statutory (44-47) ──────────────────────────────────────────────────────
+    # ── Statutory (43-46) ──────────────────────────────────────────────────────
     ("pan_number",            "PAN Number",             "ABCDE1234F"),
     ("aadhaar_number",        "Aadhaar Number",         "123456789012"),
     ("uan_number",            "UAN Number",             "100123456789"),
@@ -128,19 +130,20 @@ C_PAYMENT_MODE      = 29
 C_SHIFT             = 30
 C_RESIGNATION_DATE  = 31
 C_RELIEVING_DATE    = 32
-C_ADDRESS_LINE1     = 33
-C_CITY              = 34
-C_STATE             = 35
-C_PINCODE           = 36
-C_BANK_NAME         = 37
-C_ACCOUNT_NUMBER    = 38
-C_IFSC              = 39
-C_ACCOUNT_HOLDER    = 40
-C_ACCOUNT_TYPE      = 41
-C_PAN               = 42
-C_AADHAAR           = 43
-C_UAN               = 44
-C_ESIC              = 45
+C_CTC               = 33
+C_ADDRESS_LINE1     = 34
+C_CITY              = 35
+C_STATE             = 36
+C_PINCODE           = 37
+C_BANK_NAME         = 38
+C_ACCOUNT_NUMBER    = 39
+C_IFSC              = 40
+C_ACCOUNT_HOLDER    = 41
+C_ACCOUNT_TYPE      = 42
+C_PAN               = 43
+C_AADHAAR           = 44
+C_UAN               = 45
+C_ESIC              = 46
 
 NCOLS = len(COLUMNS)
 
@@ -149,9 +152,9 @@ SECTION_ROWS = {
     1:  ("Core Details",       "4F46E5"),  # indigo
     18: ("Personal Details",   "0891B2"),  # cyan
     25: ("Employment Details", "059669"),  # emerald
-    33: ("Address",            "D97706"),  # amber
-    37: ("Bank Details",       "7C3AED"),  # violet
-    42: ("Statutory Details",  "DC2626"),  # red
+    34: ("Address",            "D97706"),  # amber
+    38: ("Bank Details",       "7C3AED"),  # violet
+    43: ("Statutory Details",  "DC2626"),  # red
 }
 
 HEADER_FILL    = PatternFill("solid", fgColor="4F46E5")
@@ -163,19 +166,19 @@ ERROR_HDR_FILL = PatternFill("solid", fgColor="DC2626")
 SECTION_COL_FILLS = {
     range(1, 18):  PatternFill("solid", fgColor="EEF2FF"),  # indigo tint
     range(18, 25): PatternFill("solid", fgColor="E0F9FF"),  # cyan tint
-    range(25, 33): PatternFill("solid", fgColor="ECFDF5"),  # emerald tint
-    range(33, 37): PatternFill("solid", fgColor="FFFBEB"),  # amber tint
-    range(37, 42): PatternFill("solid", fgColor="F5F3FF"),  # violet tint
-    range(42, 46): PatternFill("solid", fgColor="FFF1F2"),  # red tint
+    range(25, 34): PatternFill("solid", fgColor="ECFDF5"),  # emerald tint (incl. CTC col 33)
+    range(34, 38): PatternFill("solid", fgColor="FFFBEB"),  # amber tint
+    range(38, 43): PatternFill("solid", fgColor="F5F3FF"),  # violet tint
+    range(43, 47): PatternFill("solid", fgColor="FFF1F2"),  # red tint
 }
 
 COL_WIDTHS = [
     18, 15, 15, 15, 10, 14, 25, 25, 14, 20, 22, 20, 16, 14, 14, 14, 10,  # 1-17
     14, 12, 14, 14, 20, 16, 16,                                            # 18-24
-    14, 14, 22, 30, 20, 16, 14, 14,                                        # 25-32
-    30, 16, 16, 10,                                                         # 33-36
-    18, 18, 14, 22, 12,                                                     # 37-41
-    14, 14, 14, 14,                                                         # 42-45
+    14, 14, 22, 30, 20, 16, 14, 14, 16,                                    # 25-33 (33=CTC)
+    30, 16, 16, 10,                                                         # 34-37
+    18, 18, 14, 22, 12,                                                     # 38-42
+    14, 14, 14, 14,                                                         # 43-46
 ]
 
 _GENDER_MAP = {"male": "male", "m": "male", "female": "female", "f": "female", "other": "other", "o": "other"}
@@ -542,6 +545,17 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
             manager_code = _s(raw, C_MANAGER_CODE) or None
             reporting_manager_id = emp_code_to_id.get(manager_code) if manager_code else None
 
+            # CTC
+            ctc_raw = _s(raw, C_CTC)
+            ctc_val: float | None = None
+            if ctc_raw:
+                try:
+                    ctc_val = float(str(ctc_raw).replace(",", "").strip())
+                    if ctc_val <= 0:
+                        ctc_val = None
+                except (ValueError, TypeError):
+                    ctc_val = None
+
             valid_payloads.append((row_idx, dict(
                 employee_code=emp_code,
                 biometric_code=biometric_code,
@@ -576,6 +590,7 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                 shift=shift_name,
                 shift_id=shift_id,
                 reporting_manager_id=reporting_manager_id,
+                ctc=ctc_val,
                 created_by=created_by,
                 is_active=True,
             ), emp_code, full_name, raw))
@@ -629,9 +644,10 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                         )
 
         # ── Build related records ──────────────────────────────────────────────
-        addr_payloads  = []
-        bank_payloads  = []
-        stat_payloads  = []
+        addr_payloads   = []
+        bank_payloads   = []
+        stat_payloads   = []
+        salary_payloads = []
 
         for _, payload, emp_code, _, raw in valid_payloads:
             emp_id = fresh_map.get(emp_code)
@@ -674,6 +690,16 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                     is_verified=False,
                 ))
 
+            # Salary revision — create a "joining" revision if CTC provided
+            if payload.get("ctc"):
+                salary_payloads.append(dict(
+                    employee_id=emp_id,
+                    effective_date=payload["date_of_joining"] or date.today(),
+                    ctc=payload["ctc"],
+                    revision_type=RevisionType.JOINING.value,
+                    created_by=created_by,
+                ))
+
             # Statutory — insert if any statutory field present
             pan      = _s(raw, C_PAN)
             aadhaar  = _s(raw, C_AADHAAR)
@@ -696,6 +722,8 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
             db.execute(sa_insert(EmployeeBankAccount), bank_payloads)
         if stat_payloads:
             db.execute(sa_insert(EmployeeStatutory), stat_payloads)
+        if salary_payloads:
+            db.execute(sa_insert(EmployeeSalaryRevision), salary_payloads)
 
         db.commit()
         log.info(
@@ -755,6 +783,15 @@ def process_upload(db: Session, file_bytes: bytes, created_by: int) -> BulkImpor
                             pan_number=pan or None, aadhaar_number=aadhaar or None,
                             uan_number=uan or None, esic_ip_number=esic or None,
                             pf_eligible=True, esic_eligible=True,
+                        )])
+
+                    if payload.get("ctc"):
+                        db.execute(sa_insert(EmployeeSalaryRevision), [dict(
+                            employee_id=emp_id_row,
+                            effective_date=payload["date_of_joining"] or date.today(),
+                            ctc=payload["ctc"],
+                            revision_type=RevisionType.JOINING.value,
+                            created_by=created_by,
                         )])
 
                 db.commit()

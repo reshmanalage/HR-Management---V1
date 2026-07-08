@@ -30,6 +30,7 @@ from app.models.user_module_access import UserModuleAccess, MODULES
 from app.models.payroll_policy import PayrollPolicy
 from app.models.grace_period_usage import GracePeriodUsage
 from app.models.attendance_deduction import AttendanceDeduction, DeductionType
+from app.models.employee_salary_revision import EmployeeSalaryRevision, RevisionType
 
 __all__ = [
     "User",
@@ -76,4 +77,6 @@ __all__ = [
     "GracePeriodUsage",
     "AttendanceDeduction",
     "DeductionType",
+    "EmployeeSalaryRevision",
+    "RevisionType",
 ]

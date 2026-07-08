@@ -1,7 +1,7 @@
 from datetime import date, datetime
 import enum
 
-from sqlalchemy import String, Boolean, Date, DateTime, ForeignKey, Enum, func
+from sqlalchemy import String, Boolean, Date, DateTime, ForeignKey, Enum, Numeric, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -114,6 +114,7 @@ class Employee(Base):
     shift: Mapped[str | None] = mapped_column(String(100), nullable=True)   # legacy display name
     shift_id: Mapped[int | None] = mapped_column(ForeignKey("shifts.id", ondelete="SET NULL"), nullable=True)
     cost_center: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ctc: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     # Photo
     photo_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
@@ -160,4 +161,8 @@ class Employee(Base):
     regularizations: Mapped[list["AttendanceRegularization"]] = relationship(
         "AttendanceRegularization", back_populates="employee", cascade="all, delete-orphan",
         foreign_keys="AttendanceRegularization.employee_id",
+    )
+    salary_revisions: Mapped[list["EmployeeSalaryRevision"]] = relationship(
+        "EmployeeSalaryRevision", back_populates="employee", cascade="all, delete-orphan",
+        order_by="EmployeeSalaryRevision.effective_date.desc()",
     )

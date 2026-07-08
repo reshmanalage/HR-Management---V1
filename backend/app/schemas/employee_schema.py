@@ -13,6 +13,7 @@ from app.models.employee import (
     PaymentMode,
 )
 from app.schemas.shift_schema import ShiftOut
+from app.schemas.salary_schema import SalaryRevisionOut
 
 
 # ── Lookup schemas ────────────────────────────────────────────────────────────
@@ -168,6 +169,7 @@ class CreateEmployeeRequest(BaseModel):
     shift: Optional[str] = None       # free-text display name (legacy)
     shift_id: Optional[int] = None    # FK to shifts table
     cost_center: Optional[str] = None
+    ctc: Optional[float] = None       # annual cost-to-company in INR
 
     # Step 3 — Contact
     personal_email: Optional[EmailStr] = None
@@ -215,6 +217,7 @@ class UpdateEmployeeRequest(BaseModel):
     shift: Optional[str] = None
     shift_id: Optional[int] = None
     cost_center: Optional[str] = None
+    ctc: Optional[float] = None
 
     personal_email: Optional[EmailStr] = None
     company_email: Optional[EmailStr] = None
@@ -265,10 +268,12 @@ class EmployeeOut(BaseModel):
     shift_id: Optional[int] = None
     shift_obj: Optional[ShiftOut] = None
     cost_center: Optional[str] = None
+    ctc: Optional[float] = None
 
     addresses: list[AddressOut] = []
     bank_accounts: list[BankAccountOut] = []
     statutory: Optional[StatutoryOut] = None
+    salary_revisions: list[SalaryRevisionOut] = []
 
     is_active: bool
     created_at: datetime
