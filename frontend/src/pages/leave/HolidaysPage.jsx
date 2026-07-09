@@ -46,6 +46,12 @@ export default function HolidaysPage() {
     } finally { setSaving(false); }
   }
 
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  function isFuture(h) {
+    return new Date(h.holiday_date + "T00:00:00") > today;
+  }
+
   async function handleDelete(h) {
     if (!confirm(`Delete "${h.name}"?`)) return;
     try { await deleteHoliday(h.id); await load(); } catch {}
@@ -98,7 +104,9 @@ export default function HolidaysPage() {
                       <td className="px-4 py-3 text-gray-400 text-xs">{h.description}</td>
                       <td className="px-4 py-3 text-right space-x-2">
                         <button onClick={() => openEdit(h)} className="text-indigo-600 hover:underline text-xs">Edit</button>
-                        <button onClick={() => handleDelete(h)} className="text-red-500 hover:underline text-xs">Delete</button>
+                        {isFuture(h) && (
+                          <button onClick={() => handleDelete(h)} className="text-red-500 hover:underline text-xs">Delete</button>
+                        )}
                       </td>
                     </tr>
                   ))}

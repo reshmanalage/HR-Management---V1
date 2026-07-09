@@ -141,7 +141,7 @@ class CreateEmployeeRequest(BaseModel):
     # Step 1 — Basic Info
     first_name: str
     middle_name: Optional[str] = None
-    last_name: str
+    last_name: Optional[str] = None
     display_name: Optional[str] = None
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
@@ -237,7 +237,7 @@ class EmployeeOut(BaseModel):
     biometric_code: Optional[str] = None
     first_name: str
     middle_name: Optional[str] = None
-    last_name: str
+    last_name: Optional[str] = None
     display_name: Optional[str] = None
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
@@ -287,7 +287,7 @@ class EmployeeListItem(BaseModel):
     employee_code: str
     first_name: str
     middle_name: Optional[str] = None
-    last_name: str
+    last_name: Optional[str] = None
     display_name: Optional[str] = None
     photo_url: Optional[str] = None
     department: Optional[DepartmentOut] = None

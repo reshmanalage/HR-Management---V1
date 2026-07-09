@@ -113,6 +113,8 @@ class HolidayService:
         h = self.repo.get_by_id(h_id)
         if not h:
             raise AppError("Holiday not found", 404)
+        if h.holiday_date <= date.today():
+            raise AppError("Cannot delete a past or present holiday", 400)
         self.db.delete(h)
         self.db.commit()
 

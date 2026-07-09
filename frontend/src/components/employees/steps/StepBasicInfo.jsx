@@ -50,7 +50,7 @@ export default function StepBasicInfo({ data, onChange }) {
               autoComplete="given-name"
             />
           </Field>
-          <Field label="Last Name" required>
+          <Field label="Last Name">
             <input
               className={inputCls}
               value={data.last_name ?? ""}

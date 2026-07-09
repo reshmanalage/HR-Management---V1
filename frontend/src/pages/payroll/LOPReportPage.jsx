@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   calculateLOP,
@@ -376,10 +377,21 @@ function DeductionCell({ day, empId, cycleStart, canEdit, onRefresh }) {
     setReason(""); setErr(""); setEditing(true);
   }
 
-  if (editing) {
-    return (
-      <div className="flex flex-col gap-2 min-w-[248px] bg-white border border-indigo-200 rounded-xl p-3 shadow-xl z-20">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Override Deduction</p>
+  const modal = editing ? createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={() => setEditing(false)}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-80 p-5 flex flex-col gap-3"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Override Deduction</p>
+          <button onClick={() => setEditing(false)} className="text-slate-300 hover:text-slate-600 transition-colors" aria-label="Close">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
         <div className="flex gap-1">
           {DEDUCTION_MODES.map(opt => (
             <button key={opt.value} type="button" onClick={() => handleModeChange(opt.value)}
@@ -398,8 +410,9 @@ function DeductionCell({ day, empId, cycleStart, canEdit, onRefresh }) {
         <div className="flex items-center gap-2">
           <input type="number" step="0.001" min="0" max="3" value={days}
             onChange={e => { setMode("custom"); setDays(e.target.value); }}
-            className="w-24 border border-slate-300 rounded-lg px-2.5 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-28 border border-slate-300 rounded-lg px-2.5 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
             aria-label="Deduction days"
+            autoFocus
           />
           <span className="text-xs text-slate-400">days deducted</span>
         </div>
@@ -413,24 +426,26 @@ function DeductionCell({ day, empId, cycleStart, canEdit, onRefresh }) {
             <Ico d={P.warn} className="w-3 h-3 shrink-0" />{err}
           </p>
         )}
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 text-[12px] bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-semibold transition-colors"
+            className="flex-1 text-[12px] bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-semibold transition-colors"
           >
             {saving ? "Saving…" : "Apply Override"}
           </button>
           <button onClick={() => setEditing(false)}
-            className="text-[12px] text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 border border-slate-200 transition-colors"
+            className="text-[12px] text-slate-500 px-3 py-2 rounded-lg hover:bg-slate-100 border border-slate-200 transition-colors"
           >
             Cancel
           </button>
         </div>
       </div>
-    );
-  }
+    </div>,
+    document.body
+  ) : null;
 
   return (
     <div className="flex items-center gap-1.5 group/ded">
+      {modal}
       {day.deduction_days > 0 ? (
         <div className="flex items-center gap-1.5">
           <span
@@ -714,8 +729,8 @@ function ExpandedDetail({ emp, cycleStart, canEdit, onRefresh }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Employee Card — with 4-tier color left border
 // ─────────────────────────────────────────────────────────────────────────────
-function EmployeeCard({ emp, cycleStart, canEdit, onRefresh }) {
-  const [open, setOpen] = useState(false);
+function EmployeeCard({ emp, cycleStart, canEdit, onRefresh, isOpen, onToggle }) {
+  const open = isOpen;
 
   const scheduledDays = emp.total_present + emp.total_absent + emp.total_leave;
   const pct    = scheduledDays > 0 ? Math.round((emp.total_present / scheduledDays) * 100) : 0;
@@ -747,7 +762,7 @@ function EmployeeCard({ emp, cycleStart, canEdit, onRefresh }) {
       {/* Card header */}
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => onToggle(emp.employee_id)}
         aria-expanded={open}
         aria-controls={`emp-detail-${emp.employee_id}`}
         className="w-full text-left px-5 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset"
@@ -916,6 +931,16 @@ export default function LOPReportPage() {
   const [successMsg,       setSuccessMsg]        = useState("");
   const [page,             setPage]             = useState(1);
   const [pageSize,         setPageSize]         = useState(25);
+  const [openIds,          setOpenIds]          = useState(new Set());
+
+  function toggleEmployee(id) {
+    setOpenIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const cycleEnd = useMemo(() => {
     const d = new Date(cycleStart);
@@ -1203,7 +1228,8 @@ export default function LOPReportPage() {
             <>
               <div className="space-y-2.5">
                 {pagedEmps.map(emp => (
-                  <EmployeeCard key={emp.employee_id} emp={emp} cycleStart={cycleStart} canEdit={canEdit} onRefresh={handleLoad} />
+                  <EmployeeCard key={emp.employee_id} emp={emp} cycleStart={cycleStart} canEdit={canEdit} onRefresh={handleLoad}
+                    isOpen={openIds.has(emp.employee_id)} onToggle={toggleEmployee} />
                 ))}
               </div>
 

@@ -103,7 +103,7 @@ def lop_report(cycle_start: str = Query(...), db: Session = Depends(get_db), _=D
     result = []
     for emp_id, deds in emp_deductions.items():
         emp = emps.get(emp_id)
-        name = f"{emp.first_name} {emp.last_name}" if emp else f"Employee #{emp_id}"
+        name = " ".join(p for p in [emp.first_name, emp.middle_name, emp.last_name] if p) if emp else f"Employee #{emp_id}"
         result.append(EmployeeLOPOut(employee_id=emp_id, employee_name=name, employee_code=emp.employee_code if emp else None, total_deduction_days=round(sum(float(d.deduction_days) for d in deds), 3), deductions=[DeductionItemOut(id=d.id, date=d.date, deduction_type=d.deduction_type.value, deduction_days=float(d.deduction_days), reason=d.reason) for d in deds]))
     return LOPReportOut(cycle_start=cycle_start, cycle_end=ce.strftime("%Y-%m-%d"), employees=result)
 
@@ -227,7 +227,7 @@ def attendance_report(cycle_start: str = Query(...), db: Session = Depends(get_d
             total_ded_days += ded_days
             precomp_actual_hours = round((late_by + early_by) / shift_dur_mins, 3) if status == "P" and shift_dur_mins > 0 and (late_by + early_by) > 0 else 0.0
             days_out.append(DayAttendanceOut(date=ds, day_name=d.strftime("%a"), is_weekend=is_weekend, is_holiday=is_hol, holiday_name=holidays_map.get(ds), status=status, in_time=att.in_time if att else None, out_time=att.out_time if att else None, working_minutes=att.duration_minutes if att else None, late_by_minutes=late_by, early_by_minutes=early_by, ot_minutes=ot_minutes, deduction_days=round(ded_days, 3), deduction_reasons=ded_reasons, deduction_ids=ded_ids, has_manual_override=has_override, deduction_actual_hours=precomp_actual_hours, deduction_penalty=precomp_penalty))
-        result_employees.append(EmployeeAttendanceSummary(employee_id=emp_id, employee_name=f"{emp.first_name} {emp.last_name}", employee_code=emp.employee_code, shift_info=shift_info, shift_duration_minutes=shift_dur_mins, days=days_out, total_present=total_present, total_absent=total_absent, total_wo=total_wo, total_holidays=total_holidays, total_leave=total_leave, total_ot_hours=round(total_ot_mins / 60, 2), total_deduction_days=round(total_ded_days, 3)))
+        result_employees.append(EmployeeAttendanceSummary(employee_id=emp_id, employee_name=" ".join(p for p in [emp.first_name, emp.middle_name, emp.last_name] if p), employee_code=emp.employee_code, shift_info=shift_info, shift_duration_minutes=shift_dur_mins, days=days_out, total_present=total_present, total_absent=total_absent, total_wo=total_wo, total_holidays=total_holidays, total_leave=total_leave, total_ot_hours=round(total_ot_mins / 60, 2), total_deduction_days=round(total_ded_days, 3)))
     return AttendanceReportOut(cycle_start=cs_str, cycle_end=ce_str, all_dates=[d.strftime("%Y-%m-%d") for d in all_dates], employees=result_employees)
 
 

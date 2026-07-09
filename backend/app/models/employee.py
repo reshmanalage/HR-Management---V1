@@ -74,7 +74,7 @@ class Employee(Base):
     # Name
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     middle_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Personal
