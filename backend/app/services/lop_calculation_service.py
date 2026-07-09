@@ -93,7 +93,9 @@ def _resolve_shift_thresholds(
     if shift and not shift.is_flexible and shift.start_time and shift.end_time:
         s_start = shift.start_time
         s_end   = shift.end_time
-        grace   = shift.grace_period_minutes
+        # If the shift hasn't explicitly set a grace window, fall back to the policy value
+        # so the "6 attempts within 10 minutes" rule always applies regardless of shift assignment.
+        grace   = shift.grace_period_minutes if shift.grace_period_minutes else policy.grace_period_minutes
         # Midpoint of shift = start + duration/2
         start_m  = _to_minutes(s_start)
         end_m    = _to_minutes(s_end)

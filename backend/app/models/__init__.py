@@ -31,6 +31,16 @@ from app.models.payroll_policy import PayrollPolicy
 from app.models.grace_period_usage import GracePeriodUsage
 from app.models.attendance_deduction import AttendanceDeduction, DeductionType
 from app.models.employee_salary_revision import EmployeeSalaryRevision, RevisionType
+from app.models.payroll_config import (
+    PayrollPFConfig, PayrollESICConfig, PayrollSalaryConfig,
+    PayrollOTConfig, PayrollPTSlab, PayrollModuleConfig,
+    PayrollModule, OTEmployeeType, PTGender,
+)
+from app.models.payroll_run import PayrollRun, PayrollAttendance, PayrollManualInput, RunStatus
+from app.models.payroll_entry import (
+    PayrollEntry, EmployeeModuleHistory,
+    PayrollAuditLog, PayrollPayslip, EntryApprovalStatus,
+)
 
 __all__ = [
     "User",

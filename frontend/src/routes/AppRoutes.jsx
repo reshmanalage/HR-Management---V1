@@ -27,6 +27,8 @@ import AttendancePage from "../pages/attendance/AttendancePage";
 import AttendanceUploadPage from "../pages/attendance/AttendanceUploadPage";
 import PayrollPolicyPage from "../pages/payroll/PayrollPolicyPage";
 import LOPReportPage from "../pages/payroll/LOPReportPage";
+import PayrollRunsPage from "../pages/payroll/PayrollRunsPage";
+import PayrollRunDetailPage from "../pages/payroll/PayrollRunDetailPage";
 
 export default function AppRoutes() {
   return (
@@ -64,6 +66,8 @@ export default function AppRoutes() {
           <Route path="/attendance/upload" element={<AttendanceUploadPage />} />
           <Route path="/payroll/policy" element={<PayrollPolicyPage />} />
           <Route path="/payroll/lop-report" element={<LOPReportPage />} />
+          <Route path="/payroll/runs" element={<PayrollRunsPage />} />
+          <Route path="/payroll/runs/:runId" element={<PayrollRunDetailPage />} />
         </Route>
       </Route>
 
