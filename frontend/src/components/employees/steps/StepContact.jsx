@@ -1,15 +1,29 @@
-const inputCls = "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
+const inputCls = "w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors";
+const labelCls = "block text-[11px] font-semibold tracking-wide uppercase text-gray-500 mb-1.5";
 
-function Field({ label, children }) {
+function Field({ label, required, hint, children, className = "" }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <div className={className}>
+      <label className={labelCls}>
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
       {children}
+      {hint && <p className="text-xs text-gray-400 mt-1 leading-snug">{hint}</p>}
     </div>
   );
 }
 
-function AddressBlock({ title, addressType, data, onChange }) {
+function SectionDivider({ title, action }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400 whitespace-nowrap">{title}</span>
+      <div className="flex-1 h-px bg-gray-100" />
+      {action}
+    </div>
+  );
+}
+
+function AddressBlock({ addressType, data, onChange }) {
   const addr = data.addresses?.find((a) => a.address_type === addressType) ?? {};
 
   function setField(field) {
@@ -17,42 +31,36 @@ function AddressBlock({ title, addressType, data, onChange }) {
       const value = e.target.value || null;
       const existing = data.addresses ?? [];
       const others = existing.filter((a) => a.address_type !== addressType);
-      onChange({
-        ...data,
-        addresses: [...others, { ...addr, address_type: addressType, [field]: value }],
-      });
+      onChange({ ...data, addresses: [...others, { ...addr, address_type: addressType, [field]: value }] });
     };
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Address Line 1">
-          <input className={inputCls} value={addr.address_line_1 ?? ""} onChange={setField("address_line_1")} placeholder="House / Flat No., Street" />
-        </Field>
-        <Field label="Address Line 2">
-          <input className={inputCls} value={addr.address_line_2 ?? ""} onChange={setField("address_line_2")} placeholder="Area / Colony" />
-        </Field>
-        <Field label="Landmark">
-          <input className={inputCls} value={addr.landmark ?? ""} onChange={setField("landmark")} placeholder="Near landmark" />
-        </Field>
-        <Field label="City">
-          <input className={inputCls} value={addr.city ?? ""} onChange={setField("city")} placeholder="City" />
-        </Field>
-        <Field label="District">
-          <input className={inputCls} value={addr.district ?? ""} onChange={setField("district")} placeholder="District" />
-        </Field>
-        <Field label="State">
-          <input className={inputCls} value={addr.state ?? ""} onChange={setField("state")} placeholder="State" />
-        </Field>
-        <Field label="Country">
-          <input className={inputCls} value={addr.country ?? "India"} onChange={setField("country")} placeholder="Country" />
-        </Field>
-        <Field label="Postal Code">
-          <input className={inputCls} value={addr.postal_code ?? ""} onChange={setField("postal_code")} placeholder="PIN / ZIP" />
-        </Field>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <Field label="Address Line 1" className="sm:col-span-2">
+        <input className={inputCls} value={addr.address_line_1 ?? ""} onChange={setField("address_line_1")} placeholder="House / Flat No., Street" autoComplete={addressType === "current" ? "address-line1" : "off"} />
+      </Field>
+      <Field label="Address Line 2">
+        <input className={inputCls} value={addr.address_line_2 ?? ""} onChange={setField("address_line_2")} placeholder="Area / Colony" autoComplete={addressType === "current" ? "address-line2" : "off"} />
+      </Field>
+      <Field label="Landmark">
+        <input className={inputCls} value={addr.landmark ?? ""} onChange={setField("landmark")} placeholder="Near landmark" />
+      </Field>
+      <Field label="City">
+        <input className={inputCls} value={addr.city ?? ""} onChange={setField("city")} placeholder="City" autoComplete={addressType === "current" ? "address-level2" : "off"} />
+      </Field>
+      <Field label="District">
+        <input className={inputCls} value={addr.district ?? ""} onChange={setField("district")} placeholder="District" />
+      </Field>
+      <Field label="State">
+        <input className={inputCls} value={addr.state ?? ""} onChange={setField("state")} placeholder="State" autoComplete={addressType === "current" ? "address-level1" : "off"} />
+      </Field>
+      <Field label="Country">
+        <input className={inputCls} value={addr.country ?? "India"} onChange={setField("country")} placeholder="Country" autoComplete={addressType === "current" ? "country-name" : "off"} />
+      </Field>
+      <Field label="Postal Code">
+        <input className={inputCls} value={addr.postal_code ?? ""} onChange={setField("postal_code")} placeholder="PIN / ZIP" maxLength={10} autoComplete={addressType === "current" ? "postal-code" : "off"} />
+      </Field>
     </div>
   );
 }
@@ -64,60 +72,76 @@ export default function StepContact({ data, onChange }) {
     const current = data.addresses?.find((a) => a.address_type === "current");
     if (!current) return;
     const others = (data.addresses ?? []).filter((a) => a.address_type !== "permanent");
-    onChange({
-      ...data,
-      addresses: [...others, { ...current, address_type: "permanent" }],
-    });
+    onChange({ ...data, addresses: [...others, { ...current, address_type: "permanent" }] });
   }
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Personal Email</label>
-          <input type="text" className={inputCls} value={data.personal_email ?? ""} onChange={set("personal_email")} placeholder="personal@gmail.com" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Company Email</label>
-          <input type="text" className={inputCls} value={data.company_email ?? ""} onChange={set("company_email")} placeholder="name@company.com" />
-        </div>
+      {/* Contact details */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Personal Email" hint="Used for account recovery and emergency contact.">
+          <input
+            type="email"
+            className={inputCls}
+            value={data.personal_email ?? ""}
+            onChange={set("personal_email")}
+            placeholder="personal@gmail.com"
+            autoComplete="email"
+          />
+        </Field>
+        <Field label="Company Email" hint="Primary work email for this employee.">
+          <input
+            type="email"
+            className={inputCls}
+            value={data.company_email ?? ""}
+            onChange={set("company_email")}
+            placeholder="name@company.com"
+            autoComplete="work email"
+          />
+        </Field>
+        <Field label="Mobile Number" hint="Primary contact number.">
+          <input
+            type="tel"
+            className={inputCls}
+            value={data.mobile_number ?? ""}
+            onChange={set("mobile_number")}
+            placeholder="+91 98765 43210"
+            autoComplete="tel"
+          />
+        </Field>
+        <Field label="Alternate Mobile" hint="Secondary / emergency contact.">
+          <input
+            type="tel"
+            className={inputCls}
+            value={data.alternate_mobile ?? ""}
+            onChange={set("alternate_mobile")}
+            placeholder="+91 98765 43210"
+            autoComplete="tel"
+          />
+        </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-          <input className={inputCls} value={data.mobile_number ?? ""} onChange={set("mobile_number")} placeholder="+91 98765 43210" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Alternate Mobile</label>
-          <input className={inputCls} value={data.alternate_mobile ?? ""} onChange={set("alternate_mobile")} placeholder="Alternate contact" />
-        </div>
-      </div>
+      {/* Current address */}
+      <SectionDivider title="Current / Residential Address" />
+      <AddressBlock addressType="current" data={data} onChange={onChange} />
 
-      <AddressBlock
-        title="Current / Residential Address"
-        addressType="current"
-        data={data}
-        onChange={onChange}
+      {/* Permanent address */}
+      <SectionDivider
+        title="Permanent Address"
+        action={
+          <button
+            type="button"
+            onClick={copyCurrent}
+            className="flex items-center gap-1 text-xs font-semibold text-indigo-600 border border-indigo-200 rounded-lg px-2.5 py-1 hover:bg-indigo-50 transition-colors whitespace-nowrap shrink-0"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Same as current
+          </button>
+        }
       />
-
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">Permanent Address</h3>
-        <button
-          type="button"
-          onClick={copyCurrent}
-          className="text-xs text-indigo-600 hover:underline"
-        >
-          Same as current address
-        </button>
-      </div>
-
-      <AddressBlock
-        title=""
-        addressType="permanent"
-        data={data}
-        onChange={onChange}
-      />
+      <AddressBlock addressType="permanent" data={data} onChange={onChange} />
     </div>
   );
 }
