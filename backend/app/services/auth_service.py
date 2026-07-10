@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -25,6 +26,40 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.auth_schema import TokenResponse
 from app.services.google_oauth_service import GoogleProfile
 from app.services.login_security_service import LoginSecurityService
+
+
+def _shift_lifetime(db: Session, employee_code: str | None) -> timedelta:
+    """Return time from now until the employee's shift ends today.
+
+    Falls back to ACCESS_TOKEN_EXPIRE_MINUTES if no shift / end_time is set.
+    Minimum returned value is 30 minutes to avoid locking out mid-session.
+    """
+    fallback = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    if not employee_code:
+        return fallback
+    try:
+        from app.models.employee import Employee
+        from app.models.shift import Shift
+        emp = db.scalar(
+            select(Employee)
+            .where(Employee.employee_code == employee_code)
+            .options(joinedload(Employee.shift_obj))
+        )
+        if emp is None or emp.shift_obj is None:
+            return fallback
+        end_time_str = emp.shift_obj.end_time  # "HH:MM" or None
+        if not end_time_str:
+            return fallback
+        hh, mm = map(int, end_time_str.split(":"))
+        now = datetime.now(timezone.utc)
+        shift_end_today = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        # If shift end already passed (night-shift scenario), add one day
+        if shift_end_today <= now:
+            shift_end_today += timedelta(days=1)
+        delta = shift_end_today - now
+        return max(delta, timedelta(minutes=30))
+    except Exception:
+        return fallback
 
 
 class AuthService:
@@ -99,8 +134,12 @@ class AuthService:
 
         session = self.session_repository.create(user_id=user.id, ip_address=ip_address, user_agent=user_agent)
 
-        access_token = create_access_token(subject=str(user.id))
-        refresh_token = self._issue_refresh_token(user_id=user.id, session_id=session.id, remember_me=remember_me)
+        lifetime = _shift_lifetime(self.db, user.employee_code)
+        access_token = create_access_token(subject=str(user.id), expires_delta=lifetime)
+        refresh_token = self._issue_refresh_token(
+            user_id=user.id, session_id=session.id, remember_me=remember_me,
+            lifetime_override=lifetime,
+        )
 
         self.db.commit()
 
@@ -122,12 +161,13 @@ class AuthService:
 
         self.token_repository.revoke(token_record)
 
-        access_token = create_access_token(subject=str(user.id))
+        lifetime = _shift_lifetime(self.db, user.employee_code)
+        access_token = create_access_token(subject=str(user.id), expires_delta=lifetime)
         new_refresh_token = self._issue_refresh_token(
             user_id=user.id,
             session_id=token_record.session_id,
             remember_me=False,
-            lifetime_override=token_record.expires_at - token_record.created_at,
+            lifetime_override=lifetime,
         )
 
         self.db.commit()
@@ -212,8 +252,11 @@ class AuthService:
 
         session = self.session_repository.create(user_id=user.id, ip_address=ip_address, user_agent=user_agent)
 
-        access_token = create_access_token(subject=str(user.id))
-        refresh_token = self._issue_refresh_token(user_id=user.id, session_id=session.id, remember_me=False)
+        lifetime = _shift_lifetime(self.db, user.employee_code)
+        access_token = create_access_token(subject=str(user.id), expires_delta=lifetime)
+        refresh_token = self._issue_refresh_token(
+            user_id=user.id, session_id=session.id, remember_me=False, lifetime_override=lifetime,
+        )
 
         self.db.commit()
 

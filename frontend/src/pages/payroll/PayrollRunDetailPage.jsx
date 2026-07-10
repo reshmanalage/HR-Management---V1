@@ -476,11 +476,149 @@ function DeleteRunModal({ run, onConfirm, onClose }) {
 }
 
 
+// ── Entry Detail Panel ────────────────────────────────────────────────────────
+
+function EntryDetailPanel({ e }) {
+  const earningRows = [
+    { label: "Basic",            val: e.actual_basic,    always: true },
+    { label: "HRA",              val: e.actual_hra,      always: false },
+    { label: "Other Allowances", val: e.actual_others,   always: false },
+    { label: "Overtime",         val: e.ot_amount,       always: false },
+    { label: "Reimbursement",    val: e.reimbursement,   always: false },
+    { label: "Incentive",        val: e.incentive,       always: false },
+    { label: "Bonus",            val: e.bonus,           always: false },
+  ].filter(r => r.always || r.val > 0);
+
+  const deductionRows = [
+    { label: "PF (Employee 12%)",    val: e.actual_pf,          always: false },
+    { label: "ESIC (Employee 0.75%)",val: e.ee_esic,            always: false },
+    { label: "Professional Tax",     val: e.pt,                 always: false },
+    { label: "Contract Deduction",   val: e.contract_deduction, always: false },
+    { label: "Advance",              val: e.advance,            always: false },
+    { label: "Other Deduction",      val: e.other_deduction,    always: false },
+    { label: "Extra Deduction 1",    val: e.extra_deduction_1,  always: false },
+    { label: "Extra Deduction 2",    val: e.extra_deduction_2,  always: false },
+  ].filter(r => r.val > 0);
+
+  const employerRows = [
+    { label: "Employer PF",   val: e.employer_pf },
+    { label: "Employer ESIC", val: e.er_esic },
+  ].filter(r => r.val > 0);
+
+  return (
+    <div className="px-6 py-5 bg-slate-50 border-t border-gray-100">
+      {/* Salary flow strip */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-5 text-xs">
+        {[
+          { label: "Monthly CTC",  val: fmtCur(e.monthly_ctc),   color: "bg-gray-100 text-gray-700" },
+          { label: "Gross",        val: fmtCur(e.gross),          color: "bg-gray-100 text-gray-700" },
+          ...(e.lop_days > 0 ? [{ label: `LOP ${e.lop_days}d`, val: `−${fmtCur(e.lop_amount)}`, color: "bg-red-50 text-red-600 border border-red-100" }] : []),
+          { label: "Actual Gross", val: fmtCur(e.actual_gross),   color: "bg-indigo-50 text-indigo-700 border border-indigo-100" },
+          ...(e.ot_amount > 0 ? [{ label: `OT ${e.ot_hours}h`, val: `+${fmtCur(e.ot_amount)}`, color: "bg-emerald-50 text-emerald-700 border border-emerald-100" }] : []),
+          { label: "Total Earnings", val: fmtCur(e.total_earnings), color: "bg-blue-50 text-blue-700 border border-blue-100" },
+          { label: "Deductions",   val: `−${fmtCur(e.total_deductions)}`, color: "bg-red-50 text-red-600 border border-red-100" },
+          { label: "Net Pay",      val: fmtCur(e.net_pay),        color: "bg-emerald-600 text-white font-bold" },
+        ].map((step, i, arr) => (
+          <span key={step.label} className="flex items-center gap-1.5">
+            <span className={`px-2.5 py-1 rounded-lg font-medium ${step.color}`}>
+              <span className="opacity-60 mr-1">{step.label}</span>{step.val}
+            </span>
+            {i < arr.length - 1 && <span className="text-gray-300">→</span>}
+          </span>
+        ))}
+      </div>
+
+      {/* Three-column breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        {/* Earnings */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Earnings</p>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {earningRows.map(r => (
+              <div key={r.label} className="flex justify-between px-4 py-2 text-sm">
+                <span className="text-gray-500">{r.label}</span>
+                <span className="font-mono text-gray-800">{fmtCur(r.val)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between px-4 py-2.5 bg-gray-50 text-sm font-semibold">
+              <span className="text-gray-700">Total Earnings</span>
+              <span className="font-mono text-gray-900">{fmtCur(e.total_earnings)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Deductions */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Deductions</p>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {deductionRows.length === 0 ? (
+              <p className="px-4 py-3 text-xs text-gray-300">No deductions</p>
+            ) : deductionRows.map(r => (
+              <div key={r.label} className="flex justify-between px-4 py-2 text-sm">
+                <span className="text-gray-500">{r.label}</span>
+                <span className="font-mono text-red-500">{fmtCur(r.val)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between px-4 py-2.5 bg-gray-50 text-sm font-semibold">
+              <span className="text-gray-700">Total Deductions</span>
+              <span className="font-mono text-red-600">{fmtCur(e.total_deductions)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Net Pay + Employer */}
+        <div className="flex flex-col gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Net Pay</p>
+            </div>
+            <div className="px-4 py-4 text-center">
+              <p className="text-2xl font-bold text-gray-900 font-mono">{fmtCur(e.net_pay)}</p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {fmtCur(e.total_earnings)} − {fmtCur(e.total_deductions)}
+              </p>
+            </div>
+          </div>
+          {employerRows.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Employer Contributions</p>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {employerRows.map(r => (
+                  <div key={r.label} className="flex justify-between px-4 py-2 text-sm">
+                    <span className="text-gray-500">{r.label}</span>
+                    <span className="font-mono text-gray-600">{fmtCur(r.val)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between px-4 py-2 text-xs text-gray-400">
+                  <span>Total CTC (month)</span>
+                  <span className="font-mono">{fmtCur(e.net_pay + e.total_deductions + employerRows.reduce((s, r) => s + r.val, 0))}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Entries Tab ───────────────────────────────────────────────────────────────
 
 function EntriesTab({ run, entries, onAction }) {
   const [holdTarget, setHoldTarget] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const isLocked = run?.status === "locked";
+
+  function toggleExpand(id) {
+    setExpandedId(prev => prev === id ? null : id);
+  }
 
   return (
     <>
@@ -513,52 +651,78 @@ function EntriesTab({ run, entries, onAction }) {
                 <th className="px-4 py-3 min-w-[160px]" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {entries.map((e) => (
-                <tr key={e.id} className="hover:bg-gray-50/50">
-                  <td className="px-5 py-3 font-medium text-gray-900">
-                    <p className="font-medium text-gray-900 leading-tight">{e.employee_name ?? `Employee #${e.employee_id}`}</p>
-                    {e.employee_code && <p className="text-[10px] text-gray-400 font-mono mt-0.5">#{e.employee_code}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-600 font-mono">{fmtCur(e.gross)}</td>
-                  <td className="px-4 py-3 text-right text-red-500 font-mono">{e.lop_days > 0 ? `−${fmtCur(e.lop_amount)}` : "—"}</td>
-                  <td className="px-4 py-3 text-right text-gray-700 font-mono">{fmtCur(e.actual_gross)}</td>
-                  <td className="px-4 py-3 text-right text-emerald-600 font-mono">{e.ot_amount > 0 ? `+${fmtCur(e.ot_amount)}` : "—"}</td>
-                  <td className="px-4 py-3 text-right text-gray-700 font-mono">{fmtCur(e.total_earnings)}</td>
-                  <td className="px-4 py-3 text-right text-red-500 font-mono">{fmtCur(e.total_deductions)}</td>
-                  <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono">{fmtCur(e.net_pay)}</td>
-                  <td className="px-4 py-3">
-                    <Badge status={e.approval_status} map={ENTRY_STATUS_STYLE} />
-                    {e.hold_reason && (
-                      <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[120px]" title={e.hold_reason}>{e.hold_reason}</p>
+            <tbody>
+              {entries.map((e) => {
+                const isOpen = expandedId === e.id;
+                return (
+                  <>
+                    <tr
+                      key={e.id}
+                      onClick={() => toggleExpand(e.id)}
+                      className={`cursor-pointer border-t border-gray-100 transition-colors ${isOpen ? "bg-indigo-50/60" : "hover:bg-gray-50/50"}`}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <svg
+                            className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                          <div>
+                            <p className="font-medium text-gray-900 leading-tight">{e.employee_name ?? `Employee #${e.employee_id}`}</p>
+                            {e.employee_code && <p className="text-[10px] text-gray-400 font-mono mt-0.5">#{e.employee_code}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 font-mono">{fmtCur(e.gross)}</td>
+                      <td className="px-4 py-3 text-right text-red-500 font-mono">{e.lop_days > 0 ? `−${fmtCur(e.lop_amount)}` : "—"}</td>
+                      <td className="px-4 py-3 text-right text-gray-700 font-mono">{fmtCur(e.actual_gross)}</td>
+                      <td className="px-4 py-3 text-right text-emerald-600 font-mono">{e.ot_amount > 0 ? `+${fmtCur(e.ot_amount)}` : "—"}</td>
+                      <td className="px-4 py-3 text-right text-gray-700 font-mono">{fmtCur(e.total_earnings)}</td>
+                      <td className="px-4 py-3 text-right text-red-500 font-mono">{fmtCur(e.total_deductions)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono">{fmtCur(e.net_pay)}</td>
+                      <td className="px-4 py-3">
+                        <Badge status={e.approval_status} map={ENTRY_STATUS_STYLE} />
+                        {e.hold_reason && (
+                          <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[120px]" title={e.hold_reason}>{e.hold_reason}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3" onClick={ev => ev.stopPropagation()}>
+                        {!isLocked && (
+                          <div className="flex items-center gap-2 justify-end">
+                            {e.approval_status === "pending" && (
+                              <>
+                                <button onClick={() => onAction("approve", e.id)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800">Approve</button>
+                                <button onClick={() => setHoldTarget(e.id)} className="text-xs font-medium text-red-500 hover:text-red-700">Hold</button>
+                              </>
+                            )}
+                            {e.approval_status === "approved" && (
+                              <>
+                                <button onClick={() => onAction("mark-paid", e.id)} className="text-xs font-medium text-blue-600 hover:text-blue-800">Mark Paid</button>
+                                <button onClick={() => setHoldTarget(e.id)} className="text-xs font-medium text-red-500 hover:text-red-700">Hold</button>
+                              </>
+                            )}
+                            {e.approval_status === "on_hold" && (
+                              <button onClick={() => onAction("release", e.id)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">Release</button>
+                            )}
+                            {e.approval_status === "paid" && (
+                              <span className="text-xs text-gray-400">Paid</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr key={`${e.id}-detail`}>
+                        <td colSpan={10} className="p-0">
+                          <EntryDetailPanel e={e} />
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {!isLocked && (
-                      <div className="flex items-center gap-2 justify-end">
-                        {e.approval_status === "pending" && (
-                          <>
-                            <button onClick={() => onAction("approve", e.id)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800">Approve</button>
-                            <button onClick={() => setHoldTarget(e.id)} className="text-xs font-medium text-red-500 hover:text-red-700">Hold</button>
-                          </>
-                        )}
-                        {e.approval_status === "approved" && (
-                          <>
-                            <button onClick={() => onAction("mark-paid", e.id)} className="text-xs font-medium text-blue-600 hover:text-blue-800">Mark Paid</button>
-                            <button onClick={() => setHoldTarget(e.id)} className="text-xs font-medium text-red-500 hover:text-red-700">Hold</button>
-                          </>
-                        )}
-                        {e.approval_status === "on_hold" && (
-                          <button onClick={() => onAction("release", e.id)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">Release</button>
-                        )}
-                        {e.approval_status === "paid" && (
-                          <span className="text-xs text-gray-400">Paid</span>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         </div>
