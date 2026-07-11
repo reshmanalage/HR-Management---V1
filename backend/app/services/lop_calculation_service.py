@@ -19,7 +19,7 @@ from app.models.attendance_regularization import (
 from app.models.employee import Employee, EmployeeStatus
 from app.models.grace_period_usage import GracePeriodUsage
 from app.models.holiday import Holiday
-from app.models.leave_application import LeaveApplication, LeaveStatus
+from app.models.leave_application import LeaveApplication, LeaveStatus, HalfDayPeriod
 from app.models.leave_type import LeaveType
 from app.models.payroll_policy import PayrollPolicy
 from app.models.shift import Shift
@@ -177,11 +177,28 @@ def calculate_lop_for_employee(
 
     # Regularizations indexed by (date_str, type)
     reg_map: dict[tuple, AttendanceRegularization] = {
-        (r.date, r.regularization_type): r
+        (r.date.strftime("%Y-%m-%d"), r.type): r
         for r in db.query(AttendanceRegularization).filter(
             AttendanceRegularization.employee_id == employee_id,
             AttendanceRegularization.date >= cycle_start_str,
             AttendanceRegularization.date <= cycle_end_str,
+        ).all()
+    }
+
+    # Leave type IDs for Late Coming / Early Going / Half Day (stored as LeaveApplication)
+    _late_coming_type_ids: set[int] = {
+        lt.id for lt in db.query(LeaveType).filter(
+            LeaveType.name.ilike("late coming")
+        ).all()
+    }
+    _early_going_type_ids: set[int] = {
+        lt.id for lt in db.query(LeaveType).filter(
+            LeaveType.name.ilike("early going")
+        ).all()
+    }
+    _half_day_type_ids: set[int] = {
+        lt.id for lt in db.query(LeaveType).filter(
+            LeaveType.name.ilike("half day")
         ).all()
     }
 
@@ -307,27 +324,65 @@ def calculate_lop_for_employee(
                             f"Late {att.in_time} — {late_mins} min ({frac}d actual hours)")
 
                 elif in_mins <= hd_late_mins:
+                    # Moderate late — between grace end and half-day cutoff.
                     reg = reg_map.get((ds, RegularizationType.LATE_COMING))
-                    if reg:
+                    day_leave = leave_map.get(ds)
+                    _is_morning_hd = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _half_day_type_ids
+                        and day_leave.half_day_period in (HalfDayPeriod.MORNING, None)
+                        and day_leave.status != LeaveStatus.CANCELLED
+                    )
+                    has_late_app = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _late_coming_type_ids
+                        and day_leave.status != LeaveStatus.CANCELLED
+                    )
+                    if reg or has_late_app:
+                        suffix = (
+                            f"regularization {reg.status.value}" if reg
+                            else f"late coming application ({day_leave.status.value})"
+                        )
                         add(ds, DeductionType.LATE_ARRIVAL, frac,
-                            f"Late arrival {att.in_time}"
-                            f" — regularization {reg.status.value}")
+                            f"Late arrival {att.in_time} — {suffix}, actual deduction ({frac}d)")
+                    elif _is_morning_hd and day_leave.status == LeaveStatus.APPROVED:
+                        add(ds, DeductionType.LATE_ARRIVAL, frac,
+                            f"Late arrival {att.in_time} — morning half day approved, actual deduction ({frac}d)")
+                    elif _is_morning_hd:
+                        add(ds, DeductionType.LATE_ARRIVAL, 1.0,
+                            f"Late arrival {att.in_time} — morning half day not approved (1-day deduction)")
                     else:
                         add(ds, DeductionType.LATE_ARRIVAL, 0.5,
-                            f"Late arrival {att.in_time}"
-                            f" — no regularization (0.5-day default)")
+                            f"Late arrival {att.in_time} — no regularization (0.5-day default)")
 
                 else:
-                    # After half-day late cutoff (penalty mode)
-                    reg = reg_map.get((ds, RegularizationType.HALF_DAY))
-                    if reg and reg.status == RegularizationStatus.APPROVED:
+                    # After half-day late cutoff (penalty mode).
+                    reg = (
+                        reg_map.get((ds, RegularizationType.HALF_DAY))
+                        or reg_map.get((ds, RegularizationType.LATE_COMING))
+                    )
+                    day_leave = leave_map.get(ds)
+                    _is_morning_hd = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _half_day_type_ids
+                        and day_leave.half_day_period in (HalfDayPeriod.MORNING, None)
+                        and day_leave.status != LeaveStatus.CANCELLED
+                    )
+                    has_late_app = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _late_coming_type_ids
+                        and day_leave.status == LeaveStatus.APPROVED
+                    )
+                    if (reg and reg.status == RegularizationStatus.APPROVED) or has_late_app \
+                            or (_is_morning_hd and day_leave.status == LeaveStatus.APPROVED):
                         add(ds, DeductionType.LATE_ARRIVAL, frac,
-                            f"Very late arrival {att.in_time}"
-                            f" — half-day reg approved")
+                            f"Very late arrival {att.in_time} — approved application, actual deduction ({frac}d)")
+                    elif _is_morning_hd:
+                        add(ds, DeductionType.LATE_ARRIVAL, 1.0,
+                            f"Very late arrival {att.in_time} — half day not approved (1-day deduction)")
                     else:
                         add(ds, DeductionType.LATE_ARRIVAL, 1.0,
-                            f"Arrived after {hd_late}"
-                            f" ({att.in_time}) — no approved half-day reg")
+                            f"Arrived after {hd_late} ({att.in_time}) — no approved half-day reg")
 
         # ── Present: check early leaving ──
         if att.out_time:
@@ -349,22 +404,61 @@ def calculate_lop_for_employee(
                             f"Early leaving {att.out_time} — {early_mins} min ({frac}d actual hours)")
 
                 elif out_mins < hd_early_mins:
-                    # Left before half-day early cutoff (penalty mode)
-                    reg = reg_map.get((ds, RegularizationType.HALF_DAY))
-                    if reg and reg.status == RegularizationStatus.APPROVED:
+                    # Left before half-day early cutoff (penalty mode).
+                    reg = (
+                        reg_map.get((ds, RegularizationType.HALF_DAY))
+                        or reg_map.get((ds, RegularizationType.EARLY_GOING))
+                    )
+                    day_leave = leave_map.get(ds)
+                    _is_afternoon_hd = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _half_day_type_ids
+                        and day_leave.half_day_period in (HalfDayPeriod.AFTERNOON, None)
+                        and day_leave.status != LeaveStatus.CANCELLED
+                    )
+                    has_early_app = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _early_going_type_ids
+                        and day_leave.status == LeaveStatus.APPROVED
+                    )
+                    if (reg and reg.status == RegularizationStatus.APPROVED) or has_early_app \
+                            or (_is_afternoon_hd and day_leave.status == LeaveStatus.APPROVED):
                         add(ds, DeductionType.EARLY_LEAVING, frac,
-                            f"Early leaving {att.out_time}"
-                            f" — half-day reg approved")
+                            f"Early leaving {att.out_time} — approved application, actual deduction ({frac}d)")
+                    elif _is_afternoon_hd:
+                        add(ds, DeductionType.EARLY_LEAVING, 1.0,
+                            f"Early leaving {att.out_time} — half day not approved (1-day deduction)")
                     else:
                         add(ds, DeductionType.EARLY_LEAVING, 1.0,
-                            f"Left before {hd_early}"
-                            f" ({att.out_time}) — no approved half-day reg")
+                            f"Left before {hd_early} ({att.out_time}) — no approved half-day reg")
                 else:
+                    # Moderate early — between half-day cutoff and shift end.
                     reg = reg_map.get((ds, RegularizationType.EARLY_GOING))
-                    if reg:
+                    day_leave = leave_map.get(ds)
+                    _is_afternoon_hd = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _half_day_type_ids
+                        and day_leave.half_day_period in (HalfDayPeriod.AFTERNOON, None)
+                        and day_leave.status != LeaveStatus.CANCELLED
+                    )
+                    has_early_app = (
+                        day_leave is not None
+                        and day_leave.leave_type_id in _early_going_type_ids
+                        and day_leave.status != LeaveStatus.CANCELLED
+                    )
+                    if reg or has_early_app:
+                        suffix = (
+                            f"regularization {reg.status.value}" if reg
+                            else f"early going application ({day_leave.status.value})"
+                        )
                         add(ds, DeductionType.EARLY_LEAVING, frac,
-                            f"Early leaving {att.out_time}"
-                            f" — regularization {reg.status.value}")
+                            f"Early leaving {att.out_time} — {suffix}, actual deduction ({frac}d)")
+                    elif _is_afternoon_hd and day_leave.status == LeaveStatus.APPROVED:
+                        add(ds, DeductionType.EARLY_LEAVING, frac,
+                            f"Early leaving {att.out_time} — afternoon half day approved, actual deduction ({frac}d)")
+                    elif _is_afternoon_hd:
+                        add(ds, DeductionType.EARLY_LEAVING, 1.0,
+                            f"Early leaving {att.out_time} — afternoon half day not approved (1-day deduction)")
                     else:
                         add(ds, DeductionType.EARLY_LEAVING, frac,
                             f"Early leaving {att.out_time} — no regularization")
