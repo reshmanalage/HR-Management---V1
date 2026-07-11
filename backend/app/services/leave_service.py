@@ -198,7 +198,7 @@ class LeaveApplicationService:
             raise AppError("No working days in the selected date range", 400)
         return days
 
-    def apply(self, employee_id: int, payload: LeaveApplicationCreate) -> LeaveApplication:
+    def apply(self, employee_id: int, payload: LeaveApplicationCreate, bypass_advance_check: bool = False) -> LeaveApplication:
         from datetime import date as date_cls
         lt = self.lt_repo.get_by_id(payload.leave_type_id)
         if not lt or not lt.is_active:
@@ -208,8 +208,8 @@ class LeaveApplicationService:
         year = payload.from_date.year
         today = date_cls.today()
 
-        # Advance notice checks (skipped for half-day)
-        if not payload.is_half_day:
+        # Advance notice checks (skipped for half-day and proxy submissions)
+        if not payload.is_half_day and not bypass_advance_check:
             if lt.is_paid:
                 required_advance = 3 if days <= 2 else 7
                 if (payload.from_date - today).days < required_advance:

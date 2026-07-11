@@ -26,6 +26,16 @@ def _get_employee_id(user: User, db: Session) -> int | None:
     return emp.id if emp else None
 
 
+def _can_act_on_behalf(current_user: User, target_employee_id: int, caller_emp_id: int | None, db: Session) -> bool:
+    if _is_hr_admin(current_user):
+        return True
+    if caller_emp_id:
+        target_emp = EmployeeRepository(db).get_by_id(target_employee_id)
+        if target_emp and target_emp.reporting_manager_id == caller_emp_id:
+            return True
+    return False
+
+
 def _out(rec) -> RegularizationOut:
     emp = rec.employee
     decider = rec.decided_by
@@ -55,10 +65,18 @@ def apply(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    emp_id = _get_employee_id(current_user, db)
-    if not emp_id:
-        raise AppError("No employee record linked to your account", 404)
-    return _out(RegularizationService(db).apply(emp_id, payload))
+    caller_emp_id = _get_employee_id(current_user, db)
+
+    if payload.on_behalf_of_employee_id:
+        if not _can_act_on_behalf(current_user, payload.on_behalf_of_employee_id, caller_emp_id, db):
+            raise AppError("You are not authorised to submit regularizations on behalf of this employee", 403)
+        target_emp_id = payload.on_behalf_of_employee_id
+    else:
+        if not caller_emp_id:
+            raise AppError("No employee record linked to your account", 404)
+        target_emp_id = caller_emp_id
+
+    return _out(RegularizationService(db).apply(target_emp_id, payload))
 
 
 @router.get("/me", response_model=list[RegularizationOut])

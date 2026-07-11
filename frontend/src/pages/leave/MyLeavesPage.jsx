@@ -3,6 +3,8 @@ import {
   getMyBalances, getMyApplications, applyLeave, cancelLeave,
   listLeaveTypes,
 } from "../../services/leaveService";
+import { listEmployees } from "../../services/employeeService";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_STYLES = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -16,12 +18,18 @@ const HALF_DAY_OPTIONS = [
   { value: "afternoon", label: "Afternoon" },
 ];
 
+const ADMIN_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "EXECUTIVE_ASSISTANT"];
+
 export default function MyLeavesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.some((r) => ADMIN_ROLES.includes(r));
+
   const [balances, setBalances] = useState([]);
   const [applications, setApplications] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [showApply, setShowApply] = useState(false);
-  const [form, setForm] = useState({ leave_type_id: "", from_date: "", to_date: "", is_half_day: false, half_day_period: "", reason: "" });
+  const [form, setForm] = useState({ leave_type_id: "", from_date: "", to_date: "", is_half_day: false, half_day_period: "", reason: "", on_behalf_of_employee_id: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const year = new Date().getFullYear();
@@ -35,6 +43,9 @@ export default function MyLeavesPage() {
       listLeaveTypes().catch(() => []),
     ]);
     setBalances(b); setApplications(a); setLeaveTypes(lt);
+    if (isAdmin) {
+      listEmployees().then(setEmployees).catch(() => {});
+    }
   }
 
   async function handleApply(e) {
@@ -48,10 +59,11 @@ export default function MyLeavesPage() {
         is_half_day: form.is_half_day,
         half_day_period: form.is_half_day ? form.half_day_period || null : null,
         reason: form.reason || null,
+        on_behalf_of_employee_id: form.on_behalf_of_employee_id ? parseInt(form.on_behalf_of_employee_id) : null,
       };
       await applyLeave(payload);
       setShowApply(false);
-      setForm({ leave_type_id: "", from_date: "", to_date: "", is_half_day: false, half_day_period: "", reason: "" });
+      setForm({ leave_type_id: "", from_date: "", to_date: "", is_half_day: false, half_day_period: "", reason: "", on_behalf_of_employee_id: "" });
       await load();
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to apply for leave");
@@ -159,6 +171,21 @@ export default function MyLeavesPage() {
             <h2 className="text-lg font-semibold mb-4">Apply for Leave</h2>
             {error && <div className="mb-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{error}</div>}
             <form onSubmit={handleApply} className="space-y-4">
+              {isAdmin && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">On Behalf Of (optional)</label>
+                  <select value={form.on_behalf_of_employee_id}
+                    onChange={(e) => setForm({ ...form, on_behalf_of_employee_id: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">— Myself —</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {[emp.first_name, emp.middle_name, emp.last_name].filter(Boolean).join(" ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Leave Type *</label>
                 <select required value={form.leave_type_id} onChange={(e) => setForm({ ...form, leave_type_id: e.target.value })}

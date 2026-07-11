@@ -13,6 +13,7 @@ class RegularizationCreate(BaseModel):
     out_from: str | None = None   # HH:MM — required for out_of_office
     out_till: str | None = None   # HH:MM — required for out_of_office
     reason: str | None = None
+    on_behalf_of_employee_id: int | None = None
 
 
 class RegularizationDecide(BaseModel):

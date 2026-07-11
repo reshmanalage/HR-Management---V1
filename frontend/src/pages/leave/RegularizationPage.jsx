@@ -4,6 +4,8 @@ import {
   cancelRegularization,
   getMyRegularizations,
 } from "../../services/regularizationService";
+import { listEmployees } from "../../services/employeeService";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_STYLES = {
   pending:   "bg-yellow-100 text-yellow-700",
@@ -19,6 +21,8 @@ const TYPE_LABELS = {
   out_of_office:  "Out of Office",
 };
 
+const ADMIN_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "EXECUTIVE_ASSISTANT"];
+
 const EMPTY_FORM = {
   type: "late_coming",
   date: "",
@@ -27,10 +31,15 @@ const EMPTY_FORM = {
   out_from: "",
   out_till: "",
   reason: "",
+  on_behalf_of_employee_id: "",
 };
 
 export default function RegularizationPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.some((r) => ADMIN_ROLES.includes(r));
+
   const [records, setRecords] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [showApply, setShowApply] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -40,6 +49,9 @@ export default function RegularizationPage() {
 
   async function load() {
     setRecords(await getMyRegularizations().catch(() => []));
+    if (isAdmin) {
+      listEmployees().then(setEmployees).catch(() => {});
+    }
   }
 
   function f(key, val) {
@@ -58,6 +70,7 @@ export default function RegularizationPage() {
         out_time: form.out_time || null,
         out_from: form.out_from || null,
         out_till: form.out_till || null,
+        on_behalf_of_employee_id: form.on_behalf_of_employee_id ? parseInt(form.on_behalf_of_employee_id) : null,
       };
       await applyRegularization(payload);
       setShowApply(false);
@@ -156,6 +169,21 @@ export default function RegularizationPage() {
             {error && <div className="mb-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isAdmin && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">On Behalf Of (optional)</label>
+                  <select value={form.on_behalf_of_employee_id}
+                    onChange={(e) => f("on_behalf_of_employee_id", e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">— Myself —</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {[emp.first_name, emp.middle_name, emp.last_name].filter(Boolean).join(" ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {/* Type */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Request Type *</label>

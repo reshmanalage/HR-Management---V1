@@ -141,6 +141,7 @@ class LeaveApplicationCreate(BaseModel):
     is_half_day: bool = False
     half_day_period: HalfDayPeriod | None = None
     reason: str | None = None
+    on_behalf_of_employee_id: int | None = None
 
     @field_validator("to_date")
     @classmethod
