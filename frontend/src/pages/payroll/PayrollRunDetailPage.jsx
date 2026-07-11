@@ -5,6 +5,17 @@ import {
   deleteRun, listEntries, approveEntry, holdEntry, releaseEntry, markPaid,
   loadAttendanceFromReport, upsertAttendance, upsertManualInputs,
 } from "../../services/payrollRunService";
+import { getAttendanceReport } from "../../services/payrollService";
+import { getEmployee } from "../../services/employeeService";
+import { downloadSalarySlip, downloadAttendanceReport } from "../../utils/payrollPdf";
+
+const COMPANY = {
+  name:       "DREAMSPAN VENTURES PRIVATE LIMITED",
+  address:    "S. No. 37, Plot No 556/1/2, Near Balaji Hotel, Village - Pisoli,",
+  address2:   "Taluka - Haweli, District - Pune, Maharashtra - 411060, India.",
+  regdAddress:"Dreamspan Ventures Pvt Ltd, S. No. 37, Plot No 556/1/2, Near Balaji Hotel, Village - Pisoli, Taluka - Haweli, District - Pune, Maharashtra - 411060, India.",
+  logoUrl:    null,   // set to "/logo.png" (place logo in public/) to embed it in PDFs
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -476,136 +487,263 @@ function DeleteRunModal({ run, onConfirm, onClose }) {
 }
 
 
+// ── Cycle start from run ──────────────────────────────────────────────────────
+
+function runCycleStart(run) {
+  if (!run) return null;
+  const m = run.period_month;
+  const y = run.period_year;
+  const prevMonth = m === 1 ? 12 : m - 1;
+  const prevYear  = m === 1 ? y - 1 : y;
+  return `${prevYear}-${String(prevMonth).padStart(2, "0")}-21`;
+}
+
 // ── Entry Detail Panel ────────────────────────────────────────────────────────
 
-function EntryDetailPanel({ e }) {
+function EntryDetailPanel({ e, run }) {
   const earningRows = [
-    { label: "Basic",            val: e.actual_basic,    always: true },
-    { label: "HRA",              val: e.actual_hra,      always: false },
-    { label: "Other Allowances", val: e.actual_others,   always: false },
-    { label: "Overtime",         val: e.ot_amount,       always: false },
-    { label: "Reimbursement",    val: e.reimbursement,   always: false },
-    { label: "Incentive",        val: e.incentive,       always: false },
-    { label: "Bonus",            val: e.bonus,           always: false },
-  ].filter(r => r.always || r.val > 0);
+    { label: "Basic",            rate: e.basic,   val: e.actual_basic,  always: true  },
+    { label: "HRA",              rate: e.hra,     val: e.actual_hra,    always: false },
+    { label: "Other Allowances", rate: e.others,  val: e.actual_others, always: false },
+    { label: "Overtime",         rate: null,      val: e.ot_amount,     always: false },
+    { label: "Reimbursement",    rate: null,      val: e.reimbursement, always: false },
+    { label: "Incentive",        rate: null,      val: e.incentive,     always: false },
+    { label: "Bonus",            rate: null,      val: e.bonus,         always: false },
+  ].filter(r => r.always || Number(r.val) > 0);
 
   const deductionRows = [
-    { label: "PF (Employee 12%)",    val: e.actual_pf,          always: false },
-    { label: "ESIC (Employee 0.75%)",val: e.ee_esic,            always: false },
-    { label: "Professional Tax",     val: e.pt,                 always: false },
-    { label: "Contract Deduction",   val: e.contract_deduction, always: false },
-    { label: "Advance",              val: e.advance,            always: false },
-    { label: "Other Deduction",      val: e.other_deduction,    always: false },
-    { label: "Extra Deduction 1",    val: e.extra_deduction_1,  always: false },
-    { label: "Extra Deduction 2",    val: e.extra_deduction_2,  always: false },
-  ].filter(r => r.val > 0);
+    { label: "Employee PF (12%)",    val: e.actual_pf          },
+    { label: "Employee ESIC (0.75%)",val: e.ee_esic            },
+    { label: "Professional Tax",     val: e.pt                 },
+    { label: "Contract Deduction",   val: e.contract_deduction },
+    { label: "Advance",              val: e.advance            },
+    { label: "Other Deduction",      val: e.other_deduction    },
+    { label: "Extra Deduction 1",    val: e.extra_deduction_1  },
+    { label: "Extra Deduction 2",    val: e.extra_deduction_2  },
+  ].filter(r => Number(r.val) > 0);
 
   const employerRows = [
     { label: "Employer PF",   val: e.employer_pf },
-    { label: "Employer ESIC", val: e.er_esic },
-  ].filter(r => r.val > 0);
+    { label: "Employer ESIC", val: e.er_esic     },
+  ].filter(r => Number(r.val) > 0);
+
+  const [dlSlip, setDlSlip] = useState(false);
+  const [dlAtt,  setDlAtt]  = useState(false);
+
+  async function fetchEmpProfile() {
+    try { return await getEmployee(e.employee_id); } catch { return null; }
+  }
+
+  async function handleDownloadSlip() {
+    setDlSlip(true);
+    try {
+      const cycleStart = runCycleStart(run);
+      const [empRes, attRes] = await Promise.allSettled([
+        fetchEmpProfile(),
+        cycleStart ? getAttendanceReport(cycleStart) : Promise.resolve(null),
+      ]);
+      const empProfile = empRes.status === "fulfilled" ? empRes.value : null;
+      const attReport  = attRes.status  === "fulfilled" ? attRes.value : null;
+      const attData    = attReport?.employees?.find(em => em.employee_id === e.employee_id) ?? null;
+      await downloadSalarySlip(e, run, empProfile, COMPANY, attData);
+    } finally { setDlSlip(false); }
+  }
+
+  async function handleDownloadAtt() {
+    setDlAtt(true);
+    try {
+      const cycleStart = runCycleStart(run);
+      const [empProfile, attReport] = await Promise.allSettled([
+        fetchEmpProfile(),
+        cycleStart ? getAttendanceReport(cycleStart) : Promise.resolve(null),
+      ]);
+      const emp     = empProfile.status === "fulfilled" ? empProfile.value : null;
+      const attData = attReport.status  === "fulfilled"
+        ? attReport.value?.employees?.find(em => em.employee_id === e.employee_id) ?? null
+        : null;
+      await downloadAttendanceReport(e, run, attData, emp, COMPANY);
+    } finally { setDlAtt(false); }
+  }
+
+  // Compact flow steps
+  const flowSteps = [
+    { label: "CTC",         val: fmtCur(e.monthly_ctc),   note: null },
+    { label: "Gross",       val: fmtCur(e.gross),          note: e.pf > 0 ? `CTC − PF ${fmtCur(e.pf)}` : "No PF" },
+    { label: "Per Day",     val: fmtCur(e.per_day_salary), note: `÷ ${run?.total_days ?? "?"} days` },
+    ...(Number(e.lop_days) > 0
+      ? [{ label: `LOP ${Number(e.lop_days).toFixed(3)}d`, val: `−${fmtCur(e.lop_amount)}`, note: "Per Day × LOP", minus: true }]
+      : []),
+    { label: "Act. Gross",  val: fmtCur(e.actual_gross),   note: null },
+    ...(Number(e.ot_amount) > 0
+      ? [{ label: `OT ${e.ot_hours}h`, val: `+${fmtCur(e.ot_amount)}`, note: null, plus: true }]
+      : []),
+    { label: "Earnings",    val: fmtCur(e.total_earnings),  note: null },
+    { label: "Deductions",  val: `−${fmtCur(e.total_deductions)}`, note: null, minus: true },
+    { label: "Net Pay",     val: fmtCur(e.net_pay),          note: null, highlight: true },
+  ];
 
   return (
-    <div className="px-6 py-5 bg-slate-50 border-t border-gray-100">
-      {/* Salary flow strip */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-5 text-xs">
-        {[
-          { label: "Monthly CTC",  val: fmtCur(e.monthly_ctc),   color: "bg-gray-100 text-gray-700" },
-          { label: "Gross",        val: fmtCur(e.gross),          color: "bg-gray-100 text-gray-700" },
-          ...(e.lop_days > 0 ? [{ label: `LOP ${e.lop_days}d`, val: `−${fmtCur(e.lop_amount)}`, color: "bg-red-50 text-red-600 border border-red-100" }] : []),
-          { label: "Actual Gross", val: fmtCur(e.actual_gross),   color: "bg-indigo-50 text-indigo-700 border border-indigo-100" },
-          ...(e.ot_amount > 0 ? [{ label: `OT ${e.ot_hours}h`, val: `+${fmtCur(e.ot_amount)}`, color: "bg-emerald-50 text-emerald-700 border border-emerald-100" }] : []),
-          { label: "Total Earnings", val: fmtCur(e.total_earnings), color: "bg-blue-50 text-blue-700 border border-blue-100" },
-          { label: "Deductions",   val: `−${fmtCur(e.total_deductions)}`, color: "bg-red-50 text-red-600 border border-red-100" },
-          { label: "Net Pay",      val: fmtCur(e.net_pay),        color: "bg-emerald-600 text-white font-bold" },
-        ].map((step, i, arr) => (
-          <span key={step.label} className="flex items-center gap-1.5">
-            <span className={`px-2.5 py-1 rounded-lg font-medium ${step.color}`}>
-              <span className="opacity-60 mr-1">{step.label}</span>{step.val}
-            </span>
-            {i < arr.length - 1 && <span className="text-gray-300">→</span>}
-          </span>
-        ))}
-      </div>
+    <div className="border-t border-gray-100 bg-gray-50/60">
+      <div className="px-6 py-5 space-y-5">
 
-      {/* Three-column breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-        {/* Earnings */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Earnings</p>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {earningRows.map(r => (
-              <div key={r.label} className="flex justify-between px-4 py-2 text-sm">
-                <span className="text-gray-500">{r.label}</span>
-                <span className="font-mono text-gray-800">{fmtCur(r.val)}</span>
-              </div>
+        {/* ── Payroll Calculation Flow ── */}
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2.5">Payroll Calculation Flow</p>
+          <div className="flex flex-wrap items-start gap-y-2 gap-x-1">
+            {flowSteps.map((step, i, arr) => (
+              <span key={step.label} className="flex items-start gap-1">
+                <span className={`inline-flex flex-col items-center px-2.5 py-1.5 rounded-md text-xs leading-tight
+                  ${step.highlight
+                    ? "bg-emerald-600 text-white font-semibold"
+                    : step.minus
+                    ? "bg-red-50 text-red-600 border border-red-100"
+                    : step.plus
+                    ? "bg-green-50 text-green-700 border border-green-100"
+                    : "bg-white text-gray-700 border border-gray-200"
+                  }`}>
+                  <span className="text-[9px] font-medium opacity-60 leading-none mb-0.5">{step.label}</span>
+                  <span className="font-semibold tabular-nums">{step.val}</span>
+                  {step.note && <span className="text-[8px] opacity-50 mt-0.5 leading-none">{step.note}</span>}
+                </span>
+                {i < arr.length - 1 && (
+                  <span className="text-gray-300 text-xs mt-2">›</span>
+                )}
+              </span>
             ))}
-            <div className="flex justify-between px-4 py-2.5 bg-gray-50 text-sm font-semibold">
-              <span className="text-gray-700">Total Earnings</span>
-              <span className="font-mono text-gray-900">{fmtCur(e.total_earnings)}</span>
-            </div>
           </div>
         </div>
 
-        {/* Deductions */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Deductions</p>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {deductionRows.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-gray-300">No deductions</p>
-            ) : deductionRows.map(r => (
-              <div key={r.label} className="flex justify-between px-4 py-2 text-sm">
-                <span className="text-gray-500">{r.label}</span>
-                <span className="font-mono text-red-500">{fmtCur(r.val)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between px-4 py-2.5 bg-gray-50 text-sm font-semibold">
-              <span className="text-gray-700">Total Deductions</span>
-              <span className="font-mono text-red-600">{fmtCur(e.total_deductions)}</span>
-            </div>
-          </div>
-        </div>
+        {/* ── Earnings · Deductions · Net Pay ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-        {/* Net Pay + Employer */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Net Pay</p>
+          {/* Earnings */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Earnings</p>
+              <p className="text-[10px] text-gray-400 font-medium">Rate → Earned</p>
             </div>
-            <div className="px-4 py-4 text-center">
-              <p className="text-2xl font-bold text-gray-900 font-mono">{fmtCur(e.net_pay)}</p>
-              <p className="text-[10px] text-gray-400 mt-1">
-                {fmtCur(e.total_earnings)} − {fmtCur(e.total_deductions)}
-              </p>
-            </div>
-          </div>
-          {employerRows.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Employer Contributions</p>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {employerRows.map(r => (
-                  <div key={r.label} className="flex justify-between px-4 py-2 text-sm">
-                    <span className="text-gray-500">{r.label}</span>
-                    <span className="font-mono text-gray-600">{fmtCur(r.val)}</span>
+            <div className="divide-y divide-gray-50">
+              {earningRows.map(r => (
+                <div key={r.label} className="flex items-center justify-between px-4 py-2 text-xs">
+                  <span className="text-gray-500 w-28 shrink-0">{r.label}</span>
+                  <div className="flex items-center gap-3 ml-auto">
+                    {r.rate != null && (
+                      <span className="text-gray-300 tabular-nums text-right w-20">{fmtCur(r.rate)}</span>
+                    )}
+                    <span className="font-medium text-gray-800 tabular-nums text-right w-20">{fmtCur(r.val)}</span>
                   </div>
-                ))}
-                <div className="flex justify-between px-4 py-2 text-xs text-gray-400">
-                  <span>Total CTC (month)</span>
-                  <span className="font-mono">{fmtCur(e.net_pay + e.total_deductions + employerRows.reduce((s, r) => s + r.val, 0))}</span>
+                </div>
+              ))}
+              <div className="flex justify-between px-4 py-2.5 bg-gray-50 text-xs font-semibold">
+                <span className="text-gray-600">Total Earnings</span>
+                <span className="tabular-nums text-gray-900">{fmtCur(e.total_earnings)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Deductions */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Deductions</p>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {deductionRows.length === 0
+                ? <p className="px-4 py-3 text-xs text-gray-300 italic">No deductions applicable</p>
+                : deductionRows.map(r => (
+                  <div key={r.label} className="flex justify-between px-4 py-2 text-xs">
+                    <span className="text-gray-500">{r.label}</span>
+                    <span className="tabular-nums text-red-500">{fmtCur(r.val)}</span>
+                  </div>
+                ))
+              }
+              <div className="flex justify-between px-4 py-2.5 bg-gray-50 text-xs font-semibold">
+                <span className="text-gray-600">Total Deductions</span>
+                <span className="tabular-nums text-red-600">{fmtCur(e.total_deductions)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Net Pay + Employer */}
+          <div className="flex flex-col gap-3">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-gray-100">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Net Pay</p>
+              </div>
+              <div className="px-4 py-4 text-center">
+                <p className="text-[22px] font-bold text-gray-900 tabular-nums leading-none">{fmtCur(e.net_pay)}</p>
+                <p className="text-[10px] text-gray-400 mt-1.5 tabular-nums">
+                  {fmtCur(e.total_earnings)} − {fmtCur(e.total_deductions)}
+                </p>
+              </div>
+            </div>
+            {employerRows.length > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-100">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Employer Contributions</p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {employerRows.map(r => (
+                    <div key={r.label} className="flex justify-between px-4 py-2 text-xs">
+                      <span className="text-gray-500">{r.label}</span>
+                      <span className="tabular-nums text-gray-600">{fmtCur(r.val)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between px-4 py-2 text-xs text-gray-400">
+                    <span>Total CTC (month)</span>
+                    <span className="tabular-nums">{fmtCur(
+                      Number(e.net_pay) + Number(e.total_deductions) + employerRows.reduce((s, r) => s + Number(r.val), 0)
+                    )}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* ── Downloads ── */}
+        <div className="flex items-center gap-2 pt-1 border-t border-gray-200">
+          <button
+            onClick={handleDownloadSlip}
+            disabled={dlSlip}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            {dlSlip ? "Generating…" : "Salary Slip"}
+          </button>
+          <button
+            onClick={handleDownloadAtt}
+            disabled={dlAtt}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            {dlAtt ? "Generating…" : "Attendance Report"}
+          </button>
+        </div>
+
       </div>
     </div>
+  );
+}
+
+// ── Icon action button with tooltip ──────────────────────────────────────────
+function IconBtn({ title, onClick, className = "", d }) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className={`relative group p-1.5 rounded-md transition-colors ${className}`}
+    >
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+      </svg>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded bg-gray-800 px-2 py-0.5 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {title}
+      </span>
+    </button>
   );
 }
 
@@ -636,22 +774,17 @@ function EntriesTab({ run, entries, onAction }) {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="text-sm min-w-[1100px] w-full">
+          <table className="text-sm w-full">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Emp</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gross</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">LOP</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Act. Gross</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Earnings</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Deductions</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide font-bold">Net Pay</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="px-4 py-3 min-w-[160px]" />
+              <tr className="border-b border-gray-100 bg-gray-50/80">
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-[35%]">Employee</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Gross Salary</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Net Pay</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 w-24" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-50">
               {entries.map((e) => {
                 const isOpen = expandedId === e.id;
                 return (
@@ -659,64 +792,114 @@ function EntriesTab({ run, entries, onAction }) {
                     <tr
                       key={e.id}
                       onClick={() => toggleExpand(e.id)}
-                      className={`cursor-pointer border-t border-gray-100 transition-colors ${isOpen ? "bg-indigo-50/60" : "hover:bg-gray-50/50"}`}
+                      className={`cursor-pointer transition-colors ${isOpen ? "bg-blue-50/40" : "hover:bg-gray-50/60"}`}
                     >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
+                      {/* Employee */}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
                           <svg
-                            className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}
+                            className={`w-3 h-3 text-gray-300 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}
                             fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                           </svg>
-                          <div>
-                            <p className="font-medium text-gray-900 leading-tight">{e.employee_name ?? `Employee #${e.employee_id}`}</p>
-                            {e.employee_code && <p className="text-[10px] text-gray-400 font-mono mt-0.5">#{e.employee_code}</p>}
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 text-sm leading-snug truncate">
+                              {e.employee_name ?? `Employee #${e.employee_id}`}
+                            </p>
+                            {e.employee_code && (
+                              <p className="text-[10px] text-gray-400 font-mono mt-0.5">#{e.employee_code}</p>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">{fmtCur(e.gross)}</td>
-                      <td className="px-4 py-3 text-right text-red-500 font-mono">{e.lop_days > 0 ? `−${fmtCur(e.lop_amount)}` : "—"}</td>
-                      <td className="px-4 py-3 text-right text-gray-700 font-mono">{fmtCur(e.actual_gross)}</td>
-                      <td className="px-4 py-3 text-right text-emerald-600 font-mono">{e.ot_amount > 0 ? `+${fmtCur(e.ot_amount)}` : "—"}</td>
-                      <td className="px-4 py-3 text-right text-gray-700 font-mono">{fmtCur(e.total_earnings)}</td>
-                      <td className="px-4 py-3 text-right text-red-500 font-mono">{fmtCur(e.total_deductions)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono">{fmtCur(e.net_pay)}</td>
-                      <td className="px-4 py-3">
-                        <Badge status={e.approval_status} map={ENTRY_STATUS_STYLE} />
-                        {e.hold_reason && (
-                          <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[120px]" title={e.hold_reason}>{e.hold_reason}</p>
+
+                      {/* Gross */}
+                      <td className="px-4 py-3.5 text-right">
+                        <p className="text-sm tabular-nums text-gray-600">{fmtCur(e.gross)}</p>
+                        {Number(e.lop_days) > 0 && (
+                          <p className="text-[10px] text-red-400 tabular-nums mt-0.5">
+                            LOP −{fmtCur(e.lop_amount)}
+                          </p>
                         )}
                       </td>
-                      <td className="px-4 py-3" onClick={ev => ev.stopPropagation()}>
+
+                      {/* Net Pay */}
+                      <td className="px-4 py-3.5 text-right">
+                        <p className="text-sm font-semibold tabular-nums text-gray-900">{fmtCur(e.net_pay)}</p>
+                        {Number(e.ot_amount) > 0 && (
+                          <p className="text-[10px] text-emerald-600 tabular-nums mt-0.5">
+                            OT +{fmtCur(e.ot_amount)}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3.5">
+                        <Badge status={e.approval_status} map={ENTRY_STATUS_STYLE} />
+                        {e.hold_reason && (
+                          <p className="text-[10px] text-red-400 mt-1 max-w-[140px] truncate" title={e.hold_reason}>
+                            {e.hold_reason}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3.5" onClick={ev => ev.stopPropagation()}>
                         {!isLocked && (
-                          <div className="flex items-center gap-2 justify-end">
+                          <div className="flex items-center gap-1 justify-end">
                             {e.approval_status === "pending" && (
                               <>
-                                <button onClick={() => onAction("approve", e.id)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800">Approve</button>
-                                <button onClick={() => setHoldTarget(e.id)} className="text-xs font-medium text-red-500 hover:text-red-700">Hold</button>
+                                <IconBtn
+                                  title="Approve"
+                                  onClick={() => onAction("approve", e.id)}
+                                  className="text-emerald-600 hover:bg-emerald-50"
+                                  d="M5 13l4 4L19 7"
+                                />
+                                <IconBtn
+                                  title="Put on Hold"
+                                  onClick={() => setHoldTarget(e.id)}
+                                  className="text-amber-500 hover:bg-amber-50"
+                                  d="M10 9v6m4-6v6M9 3h6l1 1H8L9 3zM4 6h16v2H4V6z"
+                                />
                               </>
                             )}
                             {e.approval_status === "approved" && (
                               <>
-                                <button onClick={() => onAction("mark-paid", e.id)} className="text-xs font-medium text-blue-600 hover:text-blue-800">Mark Paid</button>
-                                <button onClick={() => setHoldTarget(e.id)} className="text-xs font-medium text-red-500 hover:text-red-700">Hold</button>
+                                <IconBtn
+                                  title="Mark as Paid"
+                                  onClick={() => onAction("mark-paid", e.id)}
+                                  className="text-blue-600 hover:bg-blue-50"
+                                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                                <IconBtn
+                                  title="Put on Hold"
+                                  onClick={() => setHoldTarget(e.id)}
+                                  className="text-amber-500 hover:bg-amber-50"
+                                  d="M10 9v6m4-6v6M9 3h6l1 1H8L9 3zM4 6h16v2H4V6z"
+                                />
                               </>
                             )}
                             {e.approval_status === "on_hold" && (
-                              <button onClick={() => onAction("release", e.id)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">Release</button>
+                              <IconBtn
+                                title="Release Hold"
+                                onClick={() => onAction("release", e.id)}
+                                className="text-indigo-600 hover:bg-indigo-50"
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             )}
                             {e.approval_status === "paid" && (
-                              <span className="text-xs text-gray-400">Paid</span>
+                              <span className="text-[10px] text-gray-400 px-1">Paid</span>
                             )}
                           </div>
                         )}
                       </td>
                     </tr>
+
                     {isOpen && (
                       <tr key={`${e.id}-detail`}>
-                        <td colSpan={10} className="p-0">
-                          <EntryDetailPanel e={e} />
+                        <td colSpan={5} className="p-0">
+                          <EntryDetailPanel e={e} run={run} />
                         </td>
                       </tr>
                     )}

@@ -171,8 +171,11 @@ def _calc_pf(monthly_ctc: Decimal, lop_amount: Decimal, cfg: PFConfig) -> tuple[
 
 
 def _lookup_pt(actual_gross: Decimal, gender: str, slabs: list[PTSlab]) -> Decimal:
-    """Walk slabs sorted ascending by min_gross; return first matching pt_amount."""
-    gender_lower = gender.lower()
+    """Walk slabs sorted ascending by min_gross; return first matching pt_amount.
+
+    Maharashtra rule: 'not male' (female / other) uses the female slab.
+    """
+    gender_lower = "male" if gender.lower() == "male" else "female"
     matched = Decimal(0)
     for slab in sorted(slabs, key=lambda s: s.min_gross):
         if slab.gender not in (gender_lower, "all"):

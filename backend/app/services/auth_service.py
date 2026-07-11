@@ -57,7 +57,7 @@ def _shift_lifetime(db: Session, employee_code: str | None) -> timedelta:
         if shift_end_today <= now:
             shift_end_today += timedelta(days=1)
         delta = shift_end_today - now
-        return max(delta, timedelta(minutes=30))
+        return max(delta, timedelta(minutes=270))
     except Exception:
         return fallback
 
