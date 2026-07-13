@@ -371,12 +371,12 @@ def calculate_lop_for_employee(
                     has_late_app = (
                         day_leave is not None
                         and day_leave.leave_type_id in _late_coming_type_ids
-                        and day_leave.status == LeaveStatus.APPROVED
+                        and day_leave.status != LeaveStatus.CANCELLED
                     )
                     if (reg and reg.status == RegularizationStatus.APPROVED) or has_late_app \
                             or (_is_morning_hd and day_leave.status == LeaveStatus.APPROVED):
                         add(ds, DeductionType.LATE_ARRIVAL, frac,
-                            f"Very late arrival {att.in_time} — approved application, actual deduction ({frac}d)")
+                            f"Very late arrival {att.in_time} — application filed, actual deduction ({frac}d)")
                     elif _is_morning_hd:
                         add(ds, DeductionType.LATE_ARRIVAL, 1.0,
                             f"Very late arrival {att.in_time} — half day not approved (1-day deduction)")
@@ -419,12 +419,12 @@ def calculate_lop_for_employee(
                     has_early_app = (
                         day_leave is not None
                         and day_leave.leave_type_id in _early_going_type_ids
-                        and day_leave.status == LeaveStatus.APPROVED
+                        and day_leave.status != LeaveStatus.CANCELLED
                     )
                     if (reg and reg.status == RegularizationStatus.APPROVED) or has_early_app \
                             or (_is_afternoon_hd and day_leave.status == LeaveStatus.APPROVED):
                         add(ds, DeductionType.EARLY_LEAVING, frac,
-                            f"Early leaving {att.out_time} — approved application, actual deduction ({frac}d)")
+                            f"Early leaving {att.out_time} — application filed, actual deduction ({frac}d)")
                     elif _is_afternoon_hd:
                         add(ds, DeductionType.EARLY_LEAVING, 1.0,
                             f"Early leaving {att.out_time} — half day not approved (1-day deduction)")
