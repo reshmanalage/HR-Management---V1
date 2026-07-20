@@ -6,6 +6,9 @@ import {
   listEmployeesInCycle,
   listAttendanceRecords,
   updateAttendanceRecord,
+  listNonBiometricEmployees,
+  addManualAttendance,
+  addManualBulk,
 } from "../../services/attendanceService";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,6 +100,7 @@ const PATHS = {
   search:   "M21 21l-4.35-4.35M17 11A6 6 0 111 11a6 6 0 0116 0z",
   lightning:"M13 10V3L4 14h7v7l9-11h-7z",
   absent:   "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636",
+  plus:     "M12 4v16m8-8H4",
 };
 function Ico({ d, className = "w-4 h-4" }) {
   return (
@@ -186,27 +190,30 @@ function SummaryCards({ records, empList }) {
   }, [records, empList]);
 
   const cards = [
-    { label:"Total Employees", value:stats.employees, icon:PATHS.user,     iconBg:"bg-indigo-50",  iconCl:"text-indigo-500",  vc:"text-indigo-700"  },
-    { label:"Present Records", value:stats.present,   icon:PATHS.checkSm,  iconBg:"bg-emerald-50", iconCl:"text-emerald-500", vc:"text-emerald-700" },
-    { label:"Absent Records",  value:stats.absent,    icon:PATHS.absent,   iconBg:"bg-red-50",     iconCl:"text-red-400",     vc:"text-red-600"     },
-    { label:"Week Offs",       value:stats.off,       icon:PATHS.pause,    iconBg:"bg-slate-100",  iconCl:"text-slate-400",   vc:"text-slate-600"   },
-    { label:"Missing Punches", value:stats.missing,   icon:PATHS.warn,     iconBg:"bg-amber-50",   iconCl:"text-amber-500",   vc:"text-amber-700",  alert:true },
+    { label:"Total Employees", value:stats.employees, icon:PATHS.user,     iconBg:"bg-indigo-50",  iconCl:"text-indigo-500",  vc:"text-indigo-700",  accent:"border-l-indigo-400"  },
+    { label:"Present Records", value:stats.present,   icon:PATHS.checkSm,  iconBg:"bg-emerald-50", iconCl:"text-emerald-600", vc:"text-emerald-700", accent:"border-l-emerald-400" },
+    { label:"Absent Records",  value:stats.absent,    icon:PATHS.absent,   iconBg:"bg-red-50",     iconCl:"text-red-500",     vc:"text-red-600",     accent:"border-l-red-400"     },
+    { label:"Week Offs",       value:stats.off,       icon:PATHS.pause,    iconBg:"bg-slate-100",  iconCl:"text-slate-500",   vc:"text-slate-600",   accent:"border-l-slate-300"   },
+    { label:"Missing Punches", value:stats.missing,   icon:PATHS.warn,     iconBg:"bg-amber-50",   iconCl:"text-amber-500",   vc:"text-amber-700",   accent:"border-l-amber-400",  alert:true },
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {cards.map(c => (
         <div key={c.label}
-          className={`bg-white rounded-xl border px-4 py-3.5 flex items-center gap-3 transition-shadow hover:shadow-md ${
-            c.alert && c.value > 0 ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
-          }`}
+          className={`bg-white rounded-xl border border-l-[3px] relative overflow-hidden transition-all hover:shadow-md hover:-translate-y-px ${
+            c.alert && c.value > 0
+              ? `border-amber-200 bg-amber-50/20 ${c.accent}`
+              : `border-slate-200 ${c.accent}`
+          } px-4 py-3`}
         >
-          <div className={`w-9 h-9 rounded-lg ${c.iconBg} flex items-center justify-center shrink-0`}>
-            <Ico d={c.icon} className={`w-4 h-4 ${c.iconCl}`} />
+          <div className={`absolute top-3 right-3 w-7 h-7 rounded-lg ${c.iconBg} flex items-center justify-center shrink-0`}>
+            <Ico d={c.icon} className={`w-3.5 h-3.5 ${c.iconCl}`} />
           </div>
-          <div className="min-w-0">
-            <p className={`text-2xl font-bold tabular-nums leading-none ${c.vc}`}>{c.value}</p>
-            <p className="text-[11px] text-slate-400 mt-1 leading-tight">{c.label}</p>
-          </div>
+          <p className="text-[11px] text-slate-400 font-medium mb-1.5 pr-9 leading-tight tracking-wide uppercase">{c.label}</p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${c.vc}`}>{c.value}</p>
+          {c.alert && c.value > 0 && (
+            <span className="absolute bottom-3 right-3 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          )}
         </div>
       ))}
     </div>
@@ -233,22 +240,22 @@ function SummaryTable({ empList, dateList, grid, onSelect, search }) {
   function hideTip() { hideTimer.current = setTimeout(() => setTooltip(null), 80); }
 
   return (
-    <>
+    <div className="h-full flex flex-col gap-2">
       <AttTooltip tip={tooltip} />
-      <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ maxHeight:"calc(100vh - 360px)" }}>
-        <table className="text-xs border-separate border-spacing-0" style={{ minWidth: dateList.length * 64 + 220 }}>
+      <div className="flex-1 min-h-0 overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white">
+        <table className="text-xs border-separate border-spacing-0" style={{ minWidth: dateList.length * 82 + 240 }}>
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[200px]">
+              <th className="sticky left-0 top-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-5 py-3.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[240px]">
                 Employee
               </th>
               {dateList.map(d => {
                 const { day, num } = dayLabel(d);
                 const weekend = isWeekend(d);
                 return (
-                  <th key={d} className={`sticky top-0 z-20 border-b border-slate-200 px-0.5 py-2 text-center whitespace-nowrap w-[60px] ${weekend ? "bg-slate-100" : "bg-slate-50"}`}>
-                    <p className="text-[10px] font-medium text-slate-400">{day}</p>
-                    <p className={`text-sm font-bold mt-0.5 ${weekend ? "text-slate-400" : "text-slate-700"}`}>{num}</p>
+                  <th key={d} className={`sticky top-0 z-20 border-b border-slate-200 px-1 py-3 text-center whitespace-nowrap w-[82px] ${weekend ? "bg-slate-100" : "bg-slate-50"}`}>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{day}</p>
+                    <p className={`text-[13px] font-bold mt-0.5 ${weekend ? "text-slate-400" : "text-slate-700"}`}>{num}</p>
                   </th>
                 );
               })}
@@ -256,9 +263,11 @@ function SummaryTable({ empList, dateList, grid, onSelect, search }) {
           </thead>
           <tbody>
             {filtered.map((emp, idx) => (
-              <tr key={emp.code} className={`group ${idx % 2 === 1 ? "bg-slate-50/40" : "bg-white"}`}>
-                <td className={`sticky left-0 z-10 border-b border-r border-slate-100 px-4 py-2.5 whitespace-nowrap ${idx % 2 === 1 ? "bg-slate-50/40" : "bg-white"} group-hover:bg-indigo-50/20`}>
-                  <button onClick={() => onSelect(emp.code)} className="font-semibold text-indigo-600 hover:text-indigo-800 text-left leading-tight text-xs">
+              <tr key={emp.code} className={`group ${idx % 2 === 1 ? "bg-slate-50" : "bg-white"}`}>
+                <td className={`sticky left-0 z-10 border-b border-r border-slate-100 px-5 py-3 whitespace-nowrap transition-colors ${
+                  idx % 2 === 1 ? "bg-slate-50 group-hover:bg-indigo-50" : "bg-white group-hover:bg-indigo-50"
+                }`}>
+                  <button onClick={() => onSelect(emp.code)} className="font-semibold text-indigo-600 hover:text-indigo-800 text-left leading-tight text-[13px] transition-colors">
                     {emp.name}
                   </button>
                   <p className="text-[10px] text-slate-400 font-mono mt-0.5">{emp.code}</p>
@@ -268,25 +277,25 @@ function SummaryTable({ empList, dateList, grid, onSelect, search }) {
                   const meta = getRecordMeta(rec);
                   const weekend = isWeekend(d);
                   if (!rec) return (
-                    <td key={d} className={`border-b border-slate-100 px-0.5 py-1.5 text-center ${weekend ? "bg-slate-50" : ""}`}>
+                    <td key={d} className={`border-b border-slate-100 px-1 py-2 text-center ${weekend ? "bg-slate-50" : ""}`}>
                       <span className="text-slate-200 text-[11px]">·</span>
                     </td>
                   );
                   return (
                     <td key={d}
-                      className={`border-b border-slate-100 px-0 py-0.5 text-center cursor-default transition-all hover:brightness-95 hover:z-10 ${meta.bg}`}
+                      className={`border-b border-slate-100 px-1 py-0 text-center cursor-default transition-all hover:brightness-95 hover:z-10 ${meta.bg}`}
                       onMouseEnter={e => showTip(e, rec, d)} onMouseLeave={hideTip}
                     >
                       {(rec.status === "A" || rec.status === "WO") ? (
-                        <span className={`block text-[10px] font-bold py-1 ${meta.text}`}>
-                          {rec.status === "A" ? "Abs" : "Off"}
+                        <span className={`block text-[10px] font-semibold py-3 tracking-wide ${meta.text}`}>
+                          {rec.status === "A" ? "Absent" : "Off"}
                         </span>
                       ) : (
-                        <div className="py-0.5 px-0.5">
-                          <p className={`text-[9px] font-semibold leading-tight tabular-nums ${rec.in_time ? meta.text : "text-amber-600"}`}>
+                        <div className="py-2 px-1">
+                          <p className={`text-[10px] font-semibold leading-tight tabular-nums ${rec.in_time ? meta.text : "text-amber-600"}`}>
                             {rec.in_time ? fmtShort(rec.in_time) : "—"}
                           </p>
-                          <p className={`text-[9px] leading-tight tabular-nums ${rec.out_time ? "text-slate-400" : "text-amber-500"}`}>
+                          <p className={`text-[10px] leading-tight tabular-nums mt-0.5 ${rec.out_time ? "text-slate-400" : "text-amber-500"}`}>
                             {rec.out_time ? fmtShort(rec.out_time) : "—"}
                           </p>
                         </div>
@@ -306,7 +315,11 @@ function SummaryTable({ empList, dateList, grid, onSelect, search }) {
           </tbody>
         </table>
       </div>
-    </>
+      <div className="flex items-center gap-3 px-1 shrink-0">
+        <span className="text-[11px] text-slate-400 font-semibold">Legend:</span>
+        <Legend />
+      </div>
+    </div>
   );
 }
 
@@ -464,34 +477,34 @@ function AttendanceInsights({ allDays, absent, missing, wopDays }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function KpiCard({ icon, label, value, sub, trend, color, bg, iconColor, progress, alert }) {
   return (
-    <div className={`rounded-xl border bg-white px-4 py-4 flex items-start gap-3 flex-1 min-w-[120px] transition-shadow hover:shadow-md ${
-      alert ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
+    <div className={`rounded-xl border bg-white px-4 py-4 flex-1 min-w-[120px] transition-all hover:shadow-md hover:-translate-y-px relative overflow-hidden ${
+      alert ? "border-amber-200 bg-amber-50/20" : "border-slate-200"
     }`}>
-      <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
-        <Ico d={icon} className={`w-4 h-4 ${iconColor}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-2xl font-bold tabular-nums leading-none ${color}`}>{value}</p>
-        <p className="text-[11px] text-slate-500 mt-1 leading-tight font-medium">{label}</p>
-        {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
-        {trend && (
-          <p className={`text-[10px] mt-1 font-semibold ${trend.up ? "text-emerald-600" : "text-slate-400"}`}>
-            {trend.up ? "▲" : "▼"} {trend.text}
-          </p>
-        )}
-        {progress !== undefined && (
-          <div className="mt-2 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                progress >= 90 ? "bg-emerald-400" : progress >= 75 ? "bg-amber-400" : "bg-red-400"
-              }`}
-              style={{ width:`${Math.min(100, progress)}%` }}
-            />
-          </div>
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
+          <Ico d={icon} className={`w-3.5 h-3.5 ${iconColor}`} />
+        </div>
+        {alert && value > 0 && (
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse mt-1" />
         )}
       </div>
-      {alert && value > 0 && (
-        <span className="shrink-0 mt-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+      <p className={`text-[26px] font-bold tabular-nums leading-none ${color}`}>{value}</p>
+      <p className="text-[11px] text-slate-500 mt-1.5 font-medium leading-tight">{label}</p>
+      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+      {trend && (
+        <p className={`text-[10px] mt-1.5 font-semibold ${trend.up ? "text-emerald-600" : "text-slate-400"}`}>
+          {trend.up ? "▲" : "▼"} {trend.text}
+        </p>
+      )}
+      {progress !== undefined && (
+        <div className="mt-2.5 w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${
+              progress >= 90 ? "bg-emerald-400" : progress >= 75 ? "bg-amber-400" : "bg-red-400"
+            }`}
+            style={{ width:`${Math.min(100, progress)}%` }}
+          />
+        </div>
       )}
     </div>
   );
@@ -761,22 +774,22 @@ function SingleEmployeeView({ emp, dateList, onBack }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
         <div className="flex items-center gap-4 flex-wrap">
           <button onClick={onBack} aria-label="Back"
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg px-1 py-1"
+            className="inline-flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-700 hover:bg-slate-50 border border-slate-200 h-8 px-3 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 shrink-0"
           >
-            <Ico d={PATHS.back} className="w-4 h-4" />
+            <Ico d={PATHS.back} className="w-3.5 h-3.5" />
             <span className="hidden sm:inline font-medium">Back</span>
           </button>
-          <div className="w-px h-8 bg-slate-200 hidden sm:block" />
+          <div className="w-px h-8 bg-slate-100 hidden sm:block" />
 
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-sm ${nameColor(emp.name)}`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 ${nameColor(emp.name)}`}>
             {nameInitials(emp.name)}
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-slate-800 leading-tight truncate">{emp.name}</h2>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{emp.code}</span>
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+            <h2 className="text-[17px] font-bold text-slate-800 leading-tight truncate">{emp.name}</h2>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span className="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{emp.code}</span>
+              <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
                 attPct >= 90 ? "bg-emerald-100 text-emerald-700" :
                 attPct >= 75 ? "bg-indigo-100 text-indigo-700" :
                 "bg-red-100 text-red-700"
@@ -784,21 +797,19 @@ function SingleEmployeeView({ emp, dateList, onBack }) {
                 {attPct}% Attendance
               </span>
               {missing > 0 && (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
                   ⚠ {missing} Missing Punch{missing > 1 ? "es" : ""}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => exportDetailCSV(emp, days, dateList)}
-              className="inline-flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-            >
-              <Ico d={PATHS.download} className="w-3.5 h-3.5" />
-              Export CSV
-            </button>
-          </div>
+          <button onClick={() => exportDetailCSV(emp, days, dateList)}
+            className="inline-flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[13px] font-medium px-3.5 h-9 rounded-lg transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            <Ico d={PATHS.download} className="w-3.5 h-3.5" />
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -847,13 +858,13 @@ function SingleEmployeeView({ emp, dateList, onBack }) {
       {/* ── 6. Attendance table ──────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {/* Table header toolbar */}
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-800">Attendance Detail</p>
+            <p className="text-[13px] font-semibold text-slate-800">Attendance Detail</p>
             <p className="text-[11px] text-slate-400 mt-0.5">{dateList.length} days · {workDays} working</p>
           </div>
           {missing > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               {missing} punch{missing > 1 ? "es" : ""} need review
             </span>
@@ -865,8 +876,8 @@ function SingleEmployeeView({ emp, dateList, onBack }) {
             <thead className="sticky top-0 z-10">
               <tr>
                 {["Date","Status","Check In","Check Out","Working Hours","Actions"].map((h, i) => (
-                  <th key={h} className={`border-b border-slate-200 bg-slate-50 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-widest ${
-                    i === 0 ? "text-left px-5" : i === 5 ? "px-4 w-16" : "text-center px-4"
+                  <th key={h} className={`border-b border-slate-100 bg-slate-50/80 py-3.5 text-[10px] font-semibold text-slate-400 uppercase tracking-widest ${
+                    i === 0 ? "text-left px-5" : i === 5 ? "px-4 w-20" : "text-center px-4"
                   }`}>{h}</th>
                 ))}
               </tr>
@@ -1113,8 +1124,8 @@ function Skeleton() {
 // Main AttendancePage — all state and API calls unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 const inputCls =
-  "border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white";
+  "border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 placeholder:text-slate-400 " +
+  "focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all bg-white h-9";
 
 export default function AttendancePage() {
   const [cycles,        setCycles]        = useState([]);
@@ -1124,6 +1135,16 @@ export default function AttendancePage() {
   const [records,       setRecords]       = useState([]);
   const [loading,       setLoading]       = useState(false);
   const [search,        setSearch]        = useState("");
+
+  // Manual entry modal
+  const [showManual,   setShowManual]   = useState(false);
+  const [nonBioEmps,   setNonBioEmps]   = useState([]);
+  const [manualEmpId,  setManualEmpId]  = useState("");
+  const [manualInTime, setManualInTime] = useState("08:30");
+  const [manualOutTime,setManualOutTime]= useState("18:00");
+  const [manualDays,   setManualDays]   = useState([]);   // [{ date, status, in_time, out_time }]
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError,  setManualError]  = useState("");
 
   useEffect(() => {
     listCycles().then(data => {
@@ -1164,6 +1185,90 @@ export default function AttendancePage() {
   };
   const hasFilters = selectedEmp || search;
 
+  const selectedCycleObj = cycles.find(c => c.cycle_start === selectedCycle);
+
+  function buildDaysForCycle(cycleObj, inTime, outTime) {
+    if (!cycleObj) return [];
+    const days = [];
+    const cur = new Date(cycleObj.cycle_start);
+    const end = new Date(cycleObj.cycle_end);
+    while (cur <= end) {
+      const dow = cur.getDay(); // 0=Sun,6=Sat
+      const isWeekend = dow === 0 || dow === 6;
+      const dateStr = cur.toISOString().slice(0, 10);
+      days.push({
+        date: dateStr,
+        status: isWeekend ? "WO" : "P",
+        in_time:  isWeekend ? null : inTime,
+        out_time: isWeekend ? null : outTime,
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    return days;
+  }
+
+  async function openManualModal() {
+    setManualError("");
+    setManualEmpId("");
+    const inT = "08:30", outT = "18:00";
+    setManualInTime(inT);
+    setManualOutTime(outT);
+    setManualDays(buildDaysForCycle(selectedCycleObj, inT, outT));
+    const emps = await listNonBiometricEmployees().catch(() => []);
+    setNonBioEmps(emps);
+    setShowManual(true);
+  }
+
+  function applyDefaultTimes(inTime, outTime) {
+    setManualDays(d => d.map(day =>
+      day.status === "P" ? { ...day, in_time: inTime, out_time: outTime } : day
+    ));
+  }
+
+  function toggleDayStatus(date) {
+    setManualDays(d => d.map(day => {
+      if (day.date !== date) return day;
+      const next = day.status === "P" ? "WO" : day.status === "WO" ? "A" : "P";
+      return {
+        ...day,
+        status:   next,
+        in_time:  next === "P" ? manualInTime  : null,
+        out_time: next === "P" ? manualOutTime : null,
+      };
+    }));
+  }
+
+  async function handleManualSubmit(e) {
+    e.preventDefault();
+    if (!selectedCycleObj || !manualEmpId) return;
+    setManualSaving(true);
+    setManualError("");
+    try {
+      const result = await addManualBulk({
+        employee_id: parseInt(manualEmpId),
+        cycle_start: selectedCycleObj.cycle_start,
+        cycle_end:   selectedCycleObj.cycle_end,
+        days: manualDays.map(d => ({
+          date:     d.date,
+          status:   d.status,
+          in_time:  d.in_time  || null,
+          out_time: d.out_time || null,
+        })),
+      });
+      setShowManual(false);
+      setLoading(true);
+      listAttendanceRecords(selectedCycle, selectedEmp || undefined).then(setRecords).finally(() => setLoading(false));
+      listEmployeesInCycle(selectedCycle).then(setEmployees);
+      if (result.skipped > 0) {
+        alert(`Saved ${result.inserted} records. ${result.skipped} date(s) already had records and were skipped.`);
+      }
+    } catch (err) {
+      setManualError(err.response?.data?.detail || "Failed to save attendance records");
+    } finally {
+      setManualSaving(false);
+    }
+  }
+
   if (!loading && cycles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -1182,117 +1287,256 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-2" style={{ height: "calc(100vh - 100px)" }}>
       {/* ── Page header ──────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-[22px] font-bold text-slate-800 tracking-tight">Attendance</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Attendance</h1>
+          <p className="text-[13px] text-slate-400 mt-0.5">
             {selectedCycle ? cycleLabel(selectedCycle) : "Payroll cycle overview"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/attendance/upload"
-            className="inline-flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
+          <button
+            onClick={openManualModal}
+            disabled={!selectedCycleObj}
+            className="inline-flex items-center gap-2 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[13px] font-medium px-4 h-9 rounded-lg transition-colors shadow-sm disabled:opacity-40"
           >
-            <Ico d={PATHS.upload} className="w-4 h-4" /> Import
+            <Ico d={PATHS.plus} className="w-3.5 h-3.5" /> Manual Entry
+          </button>
+          <Link to="/attendance/upload"
+            className="inline-flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[13px] font-medium px-4 h-9 rounded-lg transition-colors shadow-sm"
+          >
+            <Ico d={PATHS.upload} className="w-3.5 h-3.5" /> Import
           </Link>
         </div>
       </div>
 
-      {/* ── Sticky filter toolbar ─────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 -mx-6 px-6 pt-1 pb-3" style={{ background:"rgb(248 250 252 / 0.95)", backdropFilter:"blur(8px)" }}>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Cycle */}
-            <div className="flex items-center gap-2">
-              <Ico d={PATHS.calendar} className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <select value={selectedCycle} onChange={e => setSelectedCycle(e.target.value)}
-                className={inputCls + " text-[13px] py-1.5"}
-                aria-label="Payroll cycle"
-              >
-                {cycles.map(c => (
-                  <option key={c.cycle_start} value={c.cycle_start}>{c.cycle_start} → {c.cycle_end}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="w-px h-5 bg-slate-200 hidden sm:block" />
-
-            {/* Employee */}
-            <div className="flex items-center gap-2">
-              <Ico d={PATHS.user} className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)}
-                className={inputCls + " min-w-[160px] text-[13px] py-1.5"}
-                aria-label="Employee filter"
-              >
-                <option value="">All Employees</option>
-                {employees.map(e => <option key={e.code} value={e.code}>{e.name}</option>)}
-              </select>
-            </div>
-
-            {/* Search (grid view only) */}
-            {!selectedEmp && (
-              <>
-                <div className="w-px h-5 bg-slate-200 hidden sm:block" />
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                    <Ico d={PATHS.search} className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
-                  <input type="text" placeholder="Search employees…" value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className={inputCls + " pl-8 w-44 text-[13px] py-1.5"}
-                    aria-label="Search employees"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Reset */}
-            {hasFilters && (
-              <button onClick={() => { setSelectedEmp(""); setSearch(""); }}
-                className="flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
-              >
-                <Ico d={PATHS.xSm} className="w-3.5 h-3.5" /> Reset
-              </button>
-            )}
-
-            {/* Record count badge */}
-            {!loading && records.length > 0 && (
-              <span className="ml-auto text-[11px] text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg font-medium">
-                {empList.length} employees · {dateList.length} days
-              </span>
-            )}
+      {/* ── Filter toolbar ────────────────────────────────────────────────── */}
+      <div className="shrink-0">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-2 flex flex-wrap items-center gap-2.5">
+          {/* Cycle */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Ico d={PATHS.calendar} className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <select value={selectedCycle} onChange={e => setSelectedCycle(e.target.value)}
+              className={inputCls}
+              aria-label="Payroll cycle"
+            >
+              {cycles.map(c => (
+                <option key={c.cycle_start} value={c.cycle_start}>{c.cycle_start} → {c.cycle_end}</option>
+              ))}
+            </select>
           </div>
+
+          <div className="w-px h-5 bg-slate-100 hidden sm:block" />
+
+          {/* Employee */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Ico d={PATHS.user} className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)}
+              className={inputCls + " min-w-[172px]"}
+              aria-label="Employee filter"
+            >
+              <option value="">All Employees</option>
+              {employees.map(e => <option key={e.code} value={e.code}>{e.name}</option>)}
+            </select>
+          </div>
+
+          {/* Search (grid view only) */}
+          {!selectedEmp && (
+            <>
+              <div className="w-px h-5 bg-slate-100 hidden sm:block" />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <Ico d={PATHS.search} className="w-3.5 h-3.5 text-slate-400" />
+                </div>
+                <input type="text" placeholder="Search employees…" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className={inputCls + " pl-8 w-52"}
+                  aria-label="Search employees"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Reset */}
+          {hasFilters && (
+            <button onClick={() => { setSelectedEmp(""); setSearch(""); }}
+              className="inline-flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-slate-200 h-9 px-3 rounded-lg transition-colors font-medium"
+            >
+              <Ico d={PATHS.xSm} className="w-3.5 h-3.5" /> Reset
+            </button>
+          )}
+
+          {/* Record count badge */}
+          {!loading && records.length > 0 && (
+            <span className="ml-auto text-[11px] text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg font-medium tabular-nums">
+              {empList.length} employees · {dateList.length} days
+            </span>
+          )}
         </div>
       </div>
 
       {/* ── Summary cards (grid view) ────────────────────────────────────── */}
       {!loading && !selectedEmp && empList.length > 0 && (
-        <SummaryCards records={records} empList={empList} />
+        <div className="shrink-0"><SummaryCards records={records} empList={empList} /></div>
       )}
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      {loading ? (
-        <Skeleton />
-      ) : empList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-            <Ico d={PATHS.upload} className="w-6 h-6 text-slate-400" />
+      <div className="flex-1 min-h-0">
+        {loading ? (
+          <Skeleton />
+        ) : empList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200 h-full">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+              <Ico d={PATHS.upload} className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-sm font-semibold text-slate-600 mb-1">No records for this cycle</p>
+            <p className="text-xs text-slate-400">Try selecting a different payroll cycle or importing attendance data.</p>
           </div>
-          <p className="text-sm font-semibold text-slate-600 mb-1">No records for this cycle</p>
-          <p className="text-xs text-slate-400">Try selecting a different payroll cycle or importing attendance data.</p>
-        </div>
-      ) : selectedEmp ? (
-        <SingleEmployeeView emp={grid[selectedEmp]} dateList={dateList} onBack={() => setSelectedEmp("")} />
-      ) : (
-        <div className="space-y-3">
+        ) : selectedEmp ? (
+          <div className="h-full overflow-y-auto pr-1">
+            <SingleEmployeeView emp={grid[selectedEmp]} dateList={dateList} onBack={() => setSelectedEmp("")} />
+          </div>
+        ) : (
           <SummaryTable empList={empList} dateList={dateList} grid={grid} onSelect={setSelectedEmp} search={search} />
-          <div className="flex items-center gap-3 px-1">
-            <span className="text-[11px] text-slate-400 font-semibold">Legend:</span>
-            <Legend />
+        )}
+      </div>
+
+      {/* ── Manual entry modal ───────────────────────────────────────────── */}
+      {showManual && createPortal(
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col" style={{ maxHeight: "90vh" }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Manual Attendance — Cycle Entry</h2>
+                <p className="text-[12px] text-slate-400 mt-0.5">
+                  {selectedCycleObj
+                    ? `${selectedCycleObj.cycle_start} → ${selectedCycleObj.cycle_end}`
+                    : "For employees not enrolled in biometric device"}
+                </p>
+              </div>
+              <button onClick={() => setShowManual(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors">
+                <Ico d={PATHS.xSm} className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualSubmit} className="flex flex-col flex-1 min-h-0">
+              {/* Controls */}
+              <div className="px-6 py-4 space-y-3 shrink-0">
+                {manualError && (
+                  <div className="text-[13px] text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">{manualError}</div>
+                )}
+
+                {/* Employee */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Employee *</label>
+                  {nonBioEmps.length === 0 ? (
+                    <p className="text-[13px] text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+                      No active employees without biometric enrollment found.
+                    </p>
+                  ) : (
+                    <select required value={manualEmpId}
+                      onChange={e => setManualEmpId(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    >
+                      <option value="">Select employee…</option>
+                      {nonBioEmps.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.name} ({emp.code})</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Default times */}
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Default In Time</label>
+                    <input type="time" value={manualInTime}
+                      onChange={e => { setManualInTime(e.target.value); applyDefaultTimes(e.target.value, manualOutTime); }}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Default Out Time</label>
+                    <input type="time" value={manualOutTime}
+                      onChange={e => { setManualOutTime(e.target.value); applyDefaultTimes(manualInTime, e.target.value); }}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                  <span className="font-semibold text-slate-500">Tap to cycle:</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">P</span><span>Present</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">WO</span><span>Week Off</span>
+                  <span className="px-2 py-0.5 rounded bg-red-100 text-red-600 font-semibold">A</span><span>Absent</span>
+                </div>
+              </div>
+
+              {/* Calendar grid — scrollable */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-4">
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
+                    <div key={d} className="text-center text-[10px] font-semibold text-slate-400 uppercase py-1">{d}</div>
+                  ))}
+                </div>
+                {(() => {
+                  if (!manualDays.length) return null;
+                  // Pad to start on Monday
+                  const firstDow = new Date(manualDays[0].date).getDay(); // 0=Sun
+                  const pad = firstDow === 0 ? 6 : firstDow - 1; // days to pad
+                  const cells = [...Array(pad).fill(null), ...manualDays];
+                  const weeks = [];
+                  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+                  return weeks.map((week, wi) => (
+                    <div key={wi} className="grid grid-cols-7 gap-1 mb-1">
+                      {week.map((day, di) => {
+                        if (!day) return <div key={di} />;
+                        const num = day.date.slice(8);
+                        const statusCls =
+                          day.status === "P"  ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+                          day.status === "WO" ? "bg-slate-50  border-slate-200  text-slate-400"    :
+                                                "bg-red-50    border-red-200    text-red-600";
+                        return (
+                          <button key={day.date} type="button"
+                            onClick={() => toggleDayStatus(day.date)}
+                            className={`rounded-lg border text-center py-1.5 transition-all hover:shadow-sm select-none ${statusCls}`}
+                          >
+                            <p className="text-[11px] font-bold leading-none">{num}</p>
+                            <p className="text-[9px] font-semibold mt-0.5 opacity-70">{day.status}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
+                <p className="text-[12px] text-slate-400">
+                  {manualDays.filter(d => d.status === "P").length} Present ·{" "}
+                  {manualDays.filter(d => d.status === "WO").length} Week Off ·{" "}
+                  {manualDays.filter(d => d.status === "A").length} Absent
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowManual(false)}
+                    className="px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={manualSaving || nonBioEmps.length === 0 || !manualEmpId}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-medium rounded-lg transition-colors disabled:opacity-50">
+                    {manualSaving ? "Saving…" : `Save ${manualDays.length} Records`}
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

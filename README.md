@@ -1,5 +1,12 @@
-# HR Management System
+cd "C:\Users\Admin\Downloads\HR MANAGEMENT\backend" 
+.\venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --port 7000
 
+cd "C:\Users\Admin\Downloads\HR MANAGEMENT\backend"
+venv\Scripts\uvicorn app.main:app --host 0.0.0.0 --port 7000 --reload
+
+http://localhost:7000/api/v1/auth/google/callback
+# HR Management System
 Enterprise HR Management System — Phase 1: Authentication & User Management.
 
 ## Stack

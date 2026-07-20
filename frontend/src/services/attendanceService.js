@@ -30,3 +30,12 @@ export const listAttendanceRecords = (cycleStart, employeeCode) =>
   api.get("/attendance", {
     params: { cycle_start: cycleStart, ...(employeeCode ? { employee_code: employeeCode } : {}) },
   }).then((r) => r.data);
+
+export const listNonBiometricEmployees = () =>
+  api.get("/attendance/non-biometric-employees").then((r) => r.data);
+
+export const addManualAttendance = (data) =>
+  api.post("/attendance/manual", data).then((r) => r.data);
+
+export const addManualBulk = (data) =>
+  api.post("/attendance/manual-bulk", data).then((r) => r.data);
